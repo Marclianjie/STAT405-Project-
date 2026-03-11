@@ -71,9 +71,12 @@
 \newcommand{\myterm}[0]{Project Proposal}
 
 \author{
-Marc Shi (56215593), Yu Chang \\
-\small Departmentb of Statistics / University of British Columbia \\
-\small \texttt{lianjies@student.ubc.ca}
+Marc Shi (56215593) \\
+Yu Chang (47945050) \\
+\small \texttt{lianjies@student.ubc.ca} \\
+\small \texttt{changy72@student.ubc.ca}\\
+\small Department of Statistics \\
+The University of British Columbia \\
 }
 
 % headers
@@ -97,13 +100,13 @@ Marc Shi (56215593), Yu Chang \\
 \section{Project repository}
 The public repository for this project, containing the dataset, code, and model implementations, is available at:
 \url{https://github.com/Marclianjie/STAT405-Project-/tree/main}.
-The repository will be regularly updated throughout the project and will contain all scripts used for data processing, model implementation, and posterior inference.
+The repository will be regularly updated throughout the ongoing of the project and will contain all scripts used for data processing, model implementation, and posterior inference.
 
 \section{Data}Our interest in this project is to model emotional states using repeated measurements and to study how these states evolve over time. Based on this research theme, we will consider one primary dataset and one backup dataset for the analysis:
 \begin{itemize}
-   \item Our \textbf{main} dataset consists of PANAS-style affect items adapted for the Experience Sampling Method (ESM), associated with the study by Rowland and Wenzel \cite{Rowland2020}. This scale contains two main constructs: positive affect (happy, enthusiastic, active, alert) and negative affect (sad, anxious, irritated, tired), with each emotional state measured by a single item.
+   \item Our \textbf{main} dataset consists of Positive and Negative Affect Schedule (PANAS)-style affect items adapted for the Experience Sampling Method (ESM), associated with the study by Rowland and Wenzel \cite{Rowland2020}. This scale contains two main constructs: positive affect (happy, enthusiastic, active, alert) and negative affect (sad, anxious, irritated, tired), with each emotional state measured by a single item.
 
-The dataset contains 95 participants with repeated emotional measurements collected approximately 10 times per day over 6 consecutive days. The dataset is publicly available in the EmotionTimeSeries repository (\href{https://github.com/jmbh/EmotionTimeSeries}{GitHub URL}). Below we show an example of the head of the dataset.
+The dataset contains 95 participants with repeated emotional measurements collected approximately 10 times per day over 6 consecutive days. The dataset is publicly available \href{https://osf.io/jmz2n/files/m5fcy}{here} and the original studies are under the \href{https://github.com/jmbh/EmotionTimeSeries}{EmotionTimeSeries Repository}. Below we show an example of the head of the dataset.
 
 \begin{verbatim}
 subjno dayno beep group emo1_m emo2_m emo3_m emo4_m emo5_m emo6_m emo7_m emo8_m
@@ -117,7 +120,31 @@ with \texttt{emo1\_m} to \texttt{emo8\_m} representing the item scores (ranging 
 
 \textbf{Difference from prior work}: Rowland and Wenzel \cite{Rowland2020} used the longitudinal data to estimate affect networks based on partial correlations between emotions, without explicitly modeling the temporal evolution of emotional states. In contrast, our approach treats the data as a time series and uses a Bayesian Hidden Markov Model to infer latent emotional states and their transition dynamics.
 
-\item Our \textbf{backup} dataset 
+\item Our \textbf{backup} dataset is drawn from the \href{https://github.com/mkullar/DataDrivenEmotionDynamics/tree/main}{DataDrivenEmotionDynamics} repository associated with the study by \href{https://psycnet.apa.org/fulltext/2023-75204-001.html}{Kullar et al} \cite{Kullar2024}. It is an experience sampling dataset with 105 participants and repeated within-person emotional measurements over time, making it suitable for the same modeling framework as our main dataset. The dataset records repeated assessments of multiple affective states on a 1 - 7 scale, along with emotion duration and mind-wandering information. 
+ 
+Because each observation corresponds to a time point within an individual, the data can be treated as a multivariate longitudinal time series and used to fit a Bayesian Hidden Markov Model for latent emotional states and their temporal transitions. Below we show an example of the head of the backup dataset.
+
+\\
+
+{\scriptsize
+\begin{verbatim}
+id day beep angry emotion_chronometry enthusiastic happy irritated mind_wandering nervous pleased relaxed sad stressed
+1  1   2    1     1                    5            6     6         0              1       5       7       1   1
+1  1   3    1     1                    5            5     3         0              1       6       7       1   1
+1  1   4    1     60                   4            5     6         1              1       4       4       1   2
+1  1   5    1     1                    4            6     1         0              1       4       7       1   1
+1  2   2    1     30                   6            6     1         1              1       7       6       1   1
+1  2   3    1     1                    6            6     1         1              1       6       7       1   1
+\end{verbatim}
+}
+
+
+The variables shown in the dataset head include \texttt{id}, \texttt{day}, and \texttt{beep}, which identify the participant, study day, and within-day measurement occasion, respectively. The variables \texttt{angry}, \texttt{enthusiastic}, \texttt{happy}, \texttt{irritated}, \texttt{nervous}, \texttt{pleased}, \texttt{relaxed}, \texttt{sad}, and \texttt{stressed} represent self-reported emotion intensities at each measurement occasion. The variable \texttt{emotion\_chronometry} records the reported duration of the current emotional experience, and \texttt{mind\_wandering} is an indicator of whether mind wandering occurred at that time point. Together, these variables provide repeated multivariate emotion profiles that are well suited for modeling latent affective states.
+
+\textbf{Why is this treated as Backup}: Although it has a similar repeated-measures structure, it is somewhat less directly aligned with our primary modelling goal. Compared with the main dataset, its emotion variables are measured on a coarser 1-7 scale and appear to have less clean observation structure.
+
+
+
 \end{itemize}
 % Main dataset, backup dataset, structure of dataframe, research question.
 \section{Research question}
