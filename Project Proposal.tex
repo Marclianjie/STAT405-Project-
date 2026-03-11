@@ -71,7 +71,7 @@
 \newcommand{\myterm}[0]{Project Proposal}
 
 \author{
-Marc Shi (56215593) \\
+Marc Shi (56215593), Yu Chang \\
 \small Departmentb of Statistics / University of British Columbia \\
 \small \texttt{lianjies@student.ubc.ca}
 }
@@ -99,7 +99,7 @@ The public repository for this project, containing the dataset, code, and model 
 \url{https://github.com/Marclianjie/STAT405-Project-/tree/main}.
 The repository will be regularly updated throughout the project and will contain all scripts used for data processing, model implementation, and posterior inference.
 
-\section{Data}There will be one main dataset and one backup dataset for this project:
+\section{Data}Our interest in this project is to model emotional states using repeated measurements and to study how these states evolve over time. Based on this research theme, we will consider one primary dataset and one backup dataset for the analysis:
 \begin{itemize}
    \item Our \textbf{main} dataset consists of PANAS-style affect items adapted for the Experience Sampling Method (ESM), associated with the study by Rowland and Wenzel \cite{Rowland2020}. This scale contains two main constructs: positive affect (happy, enthusiastic, active, alert) and negative affect (sad, anxious, irritated, tired), with each emotional state measured by a single item.
 
@@ -152,8 +152,8 @@ therefore ignoring any temporal dependence in the longitudinal data.
 This model serves as a baseline that does not incorporate the time-series structure of the dataset.
 
 \item \textbf{Hidden Markov Model (HMM).}  
-The Hidden Markov Model introduces latent emotional states that evolve over time 
-according to a Markov transition process. Observed emotion scores are assumed to be 
+The Hidden Markov Model builds upon the naive model by assuming the latent emotional states evolve over time 
+according to a Markov transition process, in which one emotional state of time t is based on the previous emotional state of time t-1. And the observed emotion scores are assumed to be 
 generated from distributions that depend on the underlying latent state. This model 
 allows us to capture temporal dependence and infer the sequence of hidden emotional 
 states that give rise to the observed affect measurements.
@@ -188,9 +188,16 @@ computational efficiency and convergence behavior when applied to the Hidden Mar
 Model. This comparison will help illustrate the practical differences between sampling 
 approaches and importance sampling methods for Bayesian inference.
 
+
 \section{Team Contribution Plan}
 
-% Team, GitHub repo, contribution plan.
+The responsibilities for this project will be divided between the two team members to ensure balanced contributions.
+
+Yu Chang will be primarily responsible for the literature review, as well as drafting the introduction and background sections of the report. Marc Shi will be responsible for the methodology implementation and the results analysis sections.
+
+For the coding component, both team members will contribute independently by implementing and running one of the two models considered in this project. In particular, each member will implement and run one model, allowing us to independently verify the results and compare the models more effectively. Marc Shi will compile and present the final results in the report.
+
+Throughout the project, both team members will communicate regularly to coordinate progress, discuss modeling decisions, and ensure the consistency and quality of the final report.
 
 \bibliographystyle{plain}
 \clearpage
