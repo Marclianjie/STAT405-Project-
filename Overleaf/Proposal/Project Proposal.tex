@@ -100,13 +100,15 @@ The University of British Columbia \\
 \section{Project repository}
 The public repository for this project, containing the dataset, code, and model implementations, is available at:
 \url{https://github.com/Marclianjie/STAT405-Project-/tree/main}.
-The repository will be regularly updated throughout the ongoing of the project and will contain all scripts used for data processing, model implementation, and posterior inference.
+The repository will be regularly updated throughout the project and will contain all scripts used for data processing, model implementation, and posterior inference.
 
-\section{Data}Our interest in this project is to model emotional states using repeated measurements and to study how these states evolve over time. Based on this research theme, we will consider one primary dataset and one backup dataset for the analysis:
+\section{Data}
+
+Our interest in this project is to model emotional states using repeated measurements and to study how these states evolve over time. Based on this research theme, we will consider one primary dataset and one backup dataset for the analysis:
 \begin{itemize}
-   \item Our \textbf{main} dataset consists of Positive and Negative Affect Schedule (PANAS)-style affect items adapted for the Experience Sampling Method (ESM), associated with the study by Rowland and Wenzel \cite{Rowland2020}. This scale contains two main constructs: positive affect (happy, enthusiastic, active, alert) and negative affect (sad, anxious, irritated, tired), with each emotional state measured by a single item.
+   \item Our \textbf{main} dataset consists of the emotion dataset collected using the Ecological Momentary Assessment (EMA) method, associated with the study by Rowland and Wenzel \cite{Rowland2020}. This scale contains two main constructs: positive affect (happy, enthusiastic, active, alert) and negative affect (sad, anxious, irritated, tired), with each emotional state measured by a single item.
 
-The dataset contains 95 participants with repeated emotional measurements collected approximately 10 times per day over 6 consecutive days. The dataset is publicly available \href{https://osf.io/jmz2n/files/m5fcy}{here} and the original studies are under the \href{https://github.com/jmbh/EmotionTimeSeries}{EmotionTimeSeries Repository}. Below we show an example of the head of the dataset.
+The dataset contains 95 participants with repeated emotional measurements collected approximately 10 times per day over 6 consecutive days. The dataset is publicly available \href{https://osf.io/jmz2n/files/m5fcy}{here}, and the original studies are available in the \href{https://github.com/jmbh/EmotionTimeSeries}{EmotionTimeSeries repository}. Below we show an example of the head of the dataset.
 
 \begin{verbatim}
 subjno dayno beep group emo1_m emo2_m emo3_m emo4_m emo5_m emo6_m emo7_m emo8_m
@@ -116,11 +118,12 @@ subjno dayno beep group emo1_m emo2_m emo3_m emo4_m emo5_m emo6_m emo7_m emo8_m
 1      1     5    2     37     24     40     17     35     36     12     76
 1      2     2    2     64     39     36     41     36     28     35     59
 \end{verbatim}
-with \texttt{emo1\_m} to \texttt{emo8\_m} representing the item scores (ranging from 0 to 100) for the eight emotion states corresponding to positive and negative affect.
+
+The variables shown in the dataset head include \texttt{subjno}, \texttt{dayno}, \texttt{beep}, and \texttt{group}. The variable \texttt{subjno} denotes the participant identifier, \texttt{dayno} indicates the study day, and \texttt{beep} represents the measurement occasion within the day. The variable \texttt{group} indicates the experimental condition assigned to the participant in the original study. The variables \texttt{emo1\_m} to \texttt{emo8\_m} represent the item scores (ranging from 0 to 100) for eight emotion states corresponding to positive and negative affect.
 
 \textbf{Difference from prior work}: Rowland and Wenzel \cite{Rowland2020} used the longitudinal data to estimate affect networks based on partial correlations between emotions, without explicitly modeling the temporal evolution of emotional states. In contrast, our approach treats the data as a time series and uses a Bayesian Hidden Markov Model to infer latent emotional states and their transition dynamics.
 
-\item Our \textbf{backup} dataset is drawn from the \href{https://github.com/mkullar/DataDrivenEmotionDynamics/tree/main}{DataDrivenEmotionDynamics} repository associated with the study by \href{https://psycnet.apa.org/fulltext/2023-75204-001.html}{Kullar et al} \cite{Kullar2024}. It is an experience sampling dataset with 105 participants and repeated within-person emotional measurements over time, making it suitable for the same modeling framework as our main dataset. The dataset records repeated assessments of multiple affective states on a 1 - 7 scale, along with emotion duration and mind-wandering information. 
+\item Our \textbf{backup} dataset is drawn from the \href{https://github.com/mkullar/DataDrivenEmotionDynamics/tree/main}{DataDrivenEmotionDynamics} repository associated with the study by \href{https://psycnet.apa.org/fulltext/2023-75204-001.html}{Kullar et al.} \cite{Kullar2024}. It is an experience sampling dataset with 105 participants and repeated within-person emotional measurements over time, making it suitable for the same modeling framework as our main dataset. The dataset records repeated assessments of multiple affective states on a 1--7 scale, along with emotion duration and mind-wandering information. 
  
 Because each observation corresponds to a time point within an individual, the data can be treated as a multivariate longitudinal time series and used to fit a Bayesian Hidden Markov Model for latent emotional states and their temporal transitions. Below we show an example of the head of the backup dataset.
 
@@ -138,10 +141,9 @@ id day beep angry emotion_chronometry enthusiastic happy irritated mind_wanderin
 \end{verbatim}
 }
 
-
 The variables shown in the dataset head include \texttt{id}, \texttt{day}, and \texttt{beep}, which identify the participant, study day, and within-day measurement occasion, respectively. The variables \texttt{angry}, \texttt{enthusiastic}, \texttt{happy}, \texttt{irritated}, \texttt{nervous}, \texttt{pleased}, \texttt{relaxed}, \texttt{sad}, and \texttt{stressed} represent self-reported emotion intensities at each measurement occasion. The variable \texttt{emotion\_chronometry} records the reported duration of the current emotional experience, and \texttt{mind\_wandering} is an indicator of whether mind wandering occurred at that time point. Together, these variables provide repeated multivariate emotion profiles that are well suited for modeling latent affective states.
 
-\textbf{Why is this treated as Backup}: Although it has a similar repeated-measures structure, it is somewhat less directly aligned with our primary modelling goal. Compared with the main dataset, its emotion variables are measured on a coarser 1-7 scale and appear to have less clean observation structure.
+\textbf{Why is this treated as backup}: Although it has a similar repeated-measures structure, it is somewhat less directly aligned with our primary modeling goal. Compared with the main dataset, its emotion variables are measured on a coarser 1--7 scale and appear to have a less clean observation structure.
 
 
 
@@ -152,9 +154,10 @@ The variables shown in the dataset head include \texttt{id}, \texttt{day}, and \
 The main goal of this project is to investigate the temporal dynamics of emotional states using Bayesian modeling. In particular, we aim to address the following questions:
 
 \begin{enumerate}
-    \item To what extent does a Bayesian Hidden Markov Model provide a better fit to the observed emotional data compared to a naive model that assumes independence across time? We will assess this by comparing predictive performance and posterior predictive errors.
-
     \item Can the Bayesian Hidden Markov Model be used to infer and predict the latent emotional state of a participant at the next measurement occasion?
+    \begin{itemize}
+            \item Moreover, to what extent does a Bayesian Hidden Markov Model provide a better fit to the observed emotional data compared to a naive model that assumes independence across time? We will assess this by comparing the goodness of fit of two models in terms of predictive performance. 
+    \end{itemize}
 
     \item How do different Bayesian posterior inference methods compare in terms of computational efficiency and convergence behavior when applied to the Hidden Markov Model?
 \end{enumerate}
@@ -179,11 +182,7 @@ therefore ignoring any temporal dependence in the longitudinal data.
 This model serves as a baseline that does not incorporate the time-series structure of the dataset.
 
 \item \textbf{Hidden Markov Model (HMM).}  
-The Hidden Markov Model builds upon the naive model by assuming the latent emotional states evolve over time 
-according to a Markov transition process, in which one emotional state of time t is based on the previous emotional state of time t-1. And the observed emotion scores are assumed to be 
-generated from distributions that depend on the underlying latent state. This model 
-allows us to capture temporal dependence and infer the sequence of hidden emotional 
-states that give rise to the observed affect measurements.
+The Hidden Markov Model extends the naive model by allowing the latent emotional states to evolve over time according to a Markov transition process. In particular, the emotional state at time $t$ depends on the state at time $t-1$ through a transition probability distribution. The observed emotion scores are then assumed to be generated from likelihood distributions conditional on the current latent state. This model allows us to capture temporal dependence in the emotional dynamics and infer the sequence of hidden emotional states that generate the observed affect measurements.
 
 \end{enumerate}
 
@@ -194,7 +193,7 @@ in this course:
 
 \begin{enumerate}
 
-\item \textbf{Self-Importance Sampling (SNIS).}  
+\item \textbf{Self-Normalizing Importance Sampling (SNIS).}  
 This method approximates the posterior distribution by drawing samples from a proposal 
 distribution and reweighting them according to their likelihood.
 
@@ -206,14 +205,9 @@ distribution of interest, allowing us to generate samples that approximate the p
 
 \subsection{Model and inference comparison}
 
-We will compare the naive model and the Hidden Markov Model to evaluate the extent to 
-which modeling latent emotional states improves the fit to the observed data. Model 
-performance will be assessed using predictive accuracy and posterior predictive errors.
+We will compare the naive model and the Hidden Markov Model to investigate whether modeling latent emotional states improves the ability to explain and predict the observed emotional measurements. In particular, we will examine whether the Bayesian Hidden Markov Model can be used to infer the latent emotional state of a participant and to predict the emotional state at the next measurement occasion. The performance of the two models will be evaluated by comparing their predictive accuracy and goodness-of-fit based on posterior predictive measures.
 
-In addition, we will compare the two posterior computation methods in terms of 
-computational efficiency and convergence behavior when applied to the Hidden Markov 
-Model. This comparison will help illustrate the practical differences between sampling 
-approaches and importance sampling methods for Bayesian inference.
+In addition, we will compare the two posterior computation methods when applied to the Hidden Markov Model. Specifically, we will evaluate their computational efficiency and convergence behavior in approximating the posterior distribution. This comparison will help illustrate the practical differences between importance sampling approaches and Markov Chain Monte Carlo methods for Bayesian inference.
 
 
 \section{Team Contribution Plan}
