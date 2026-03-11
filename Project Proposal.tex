@@ -1,17 +1,113 @@
-\documentclass{article}
+\documentclass[a4paper,11pt]{article}
 
-\usepackage{amsmath}
+% page geometry
+\usepackage[colorlinks,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+\usepackage[lmargin=2cm,rmargin=2cm,tmargin=1.25cm,bmargin=1.25cm,includefoot,includehead]{geometry}
+
+% typography
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\renewcommand{\rmdefault}{ptm}   % Times-like serif
+\renewcommand{\sfdefault}{phv}   % Helvetica-like sans serif
+
+% text structures
+\usepackage{enumitem}
+\usepackage{tabu}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tcolorbox}
+\usepackage{colortbl}
 \usepackage{graphicx}
+\usepackage{xspace}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{fancyvrb}
 
-\title{STAT405 Project}
-\author{Your Name \and Teammate Name}
+% colors
+\definecolor{ANRblue}{HTML}{004d95}
+\definecolor{ANRred}{HTML}{FF0000}
+\definecolor{ANRpurple}{HTML}{800080}
+
+% useful packages
+\usepackage{siunitx}
+\usepackage[version=3]{mhchem}
+\usepackage{csquotes}
+
+% comments / draft commands
+\newcommand{\Mathieu}[1]{\textcolor{orange}{#1}}
+\newcommand{\Helene}[1]{\textcolor{purple}{#1}}
+
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% section title format
+\usepackage{tocloft}
+\renewcommand{\cfttoctitlefont}{\color{ANRblue}\normalfont\scshape\bfseries\sffamily\Large}
+
+\usepackage{titlesec}
+\titleformat{\section}
+{\color{ANRpurple}\normalfont\scshape\bfseries\sffamily\Large}
+{\color{ANRpurple}\thesection}{1em}{}
+\renewcommand{\cftsecfont}{\color{ANRpurple}\normalfont\scshape\bfseries\sffamily\large}
+
+\titleformat{\subsection}
+{\color{ANRblue}\normalfont\scshape\bfseries\sffamily\large}
+{\color{ANRblue}\thesubsection}{1em}{}
+\renewcommand{\cftsubsecfont}
+{\color{ANRblue}\normalfont\scshape\bfseries\sffamily}
+
+\titleformat{\subsubsection}
+{\color{ANRpurple}\normalfont\bfseries\sffamily}
+{\color{ANRpurple}\thesubsubsection}{1em}{}
+\renewcommand{\cftsubsubsecfont}
+{\color{ANRpurple}\normalfont\bfseries\sffamily\small}
+
+\titleformat{\paragraph}[runin]
+{\color{ANRblue}\normalfont\sffamily}
+{\color{ANRblue}\theparagraph}{1em}{}
+
+% project info
+\newcommand{\mytitle}[0]{Bayesian Modeling of Emotional Dynamics Using Hidden Markov Models}
+\newcommand{\mycourse}[0]{STAT405 Bayesian Statistics Course Project}
+\newcommand{\myterm}[0]{Project Proposal}
+
+\author{
+Marc Shi (56215593) \\
+\small Departmentb of Statistics / University of British Columbia \\
+\small \texttt{lianjies@student.ubc.ca}
+}
+
+% headers
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\lhead{\mycourse}
+\rhead{\Large\textcolor{ANRblue}{\myterm}}
+\renewcommand{\headrulewidth}{0pt}
+
+\lfoot{}
+\cfoot{}
+\rfoot{\thepage}
+
+\title{\vspace{-\baselineskip}\mytitle}
+\date{\today}
+
+\newcommand{\content}[1]{\emph{#1}\\}
 
 \begin{document}
-
 \maketitle
+\thispagestyle{fancy}
 
-\section{Introduction}
+\section{Data}
 
-Write something here.
+% Main dataset, backup dataset, structure of dataframe, research question.
+\section{Research question}
+
+\section{Proposed methodology \& Comparison Plan}
+
+% Naive model, HMM, Bayesian inference methods, comparison plan.
+
+\section{Team Contribution Plan}
+
+% Team, GitHub repo, contribution plan.
+
 
 \end{document}
