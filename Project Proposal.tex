@@ -115,7 +115,7 @@ subjno dayno beep group emo1_m emo2_m emo3_m emo4_m emo5_m emo6_m emo7_m emo8_m
 \end{verbatim}
 with \texttt{emo1\_m} to \texttt{emo8\_m} representing the item scores (ranging from 0 to 100) for the eight emotion states corresponding to positive and negative affect.
 
-Rowland and Wenzel \cite{Rowland2020} used this dataset to study affect network density and investigate whether mindfulness facilitates disengagement from affective experiences in daily life using network analysis methods. In contrast, we plan to analyze the dataset using Bayesian methods introduced in this course, specifically Hidden Markov Models to capture latent emotional states and their temporal transitions.
+\textbf{Difference from prior work}: Rowland and Wenzel \cite{Rowland2020} used the longitudinal data to estimate affect networks based on partial correlations between emotions, without explicitly modeling the temporal evolution of emotional states. In contrast, our approach treats the data as a time series and uses a Bayesian Hidden Markov Model to infer latent emotional states and their transition dynamics.
 
 \item Our \textbf{backup} dataset 
 \end{itemize}
