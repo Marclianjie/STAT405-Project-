@@ -131,9 +131,62 @@ The main goal of this project is to investigate the temporal dynamics of emotion
 
     \item How do different Bayesian posterior inference methods compare in terms of computational efficiency and convergence behavior when applied to the Hidden Markov Model?
 \end{enumerate}
-\section{Proposed methodology \& Comparison Plan}
+\section{Proposed methodology \& comparison plan}
 
-% Naive model, HMM, Bayesian inference methods, comparison plan.
+In this project, we will analyze the EMA emotion dataset using Bayesian methods. 
+Our analysis will involve two Bayesian models and two posterior computation methods, 
+allowing us to compare both modeling approaches and inference algorithms.
+
+\subsection{Bayesian models}
+
+We will implement and compare the following two models:
+
+\begin{enumerate}
+
+\item \textbf{Naive model.}  
+The naive model assumes that emotional states are independent across time. 
+For each measurement occasion, the latent true emotional state is assumed to be an i.i.d.\ draw from a prior distribution. 
+The observed emotion score is then generated from a likelihood distribution conditional on this latent state. 
+Under this model, both the latent emotional states and the observed measurements are assumed to be independent across time, 
+therefore ignoring any temporal dependence in the longitudinal data. 
+This model serves as a baseline that does not incorporate the time-series structure of the dataset.
+
+\item \textbf{Hidden Markov Model (HMM).}  
+The Hidden Markov Model introduces latent emotional states that evolve over time 
+according to a Markov transition process. Observed emotion scores are assumed to be 
+generated from distributions that depend on the underlying latent state. This model 
+allows us to capture temporal dependence and infer the sequence of hidden emotional 
+states that give rise to the observed affect measurements.
+
+\end{enumerate}
+
+\subsection{Posterior computation methods}
+
+For posterior inference, we will apply two Bayesian computation techniques introduced 
+in this course:
+
+\begin{enumerate}
+
+\item \textbf{Self-Importance Sampling (SNIS).}  
+This method approximates the posterior distribution by drawing samples from a proposal 
+distribution and reweighting them according to their likelihood.
+
+\item \textbf{Markov Chain Monte Carlo (MCMC) using the Metropolis--Hastings algorithm.}  
+This method constructs a Markov chain whose stationary distribution is the posterior 
+distribution of interest, allowing us to generate samples that approximate the posterior.
+
+\end{enumerate}
+
+\subsection{Model and inference comparison}
+
+We will compare the naive model and the Hidden Markov Model to evaluate the extent to 
+which modeling latent emotional states improves the fit to the observed data. Model 
+performance will be assessed using predictive accuracy and posterior predictive errors.
+
+In addition, we will compare the two posterior computation methods in terms of 
+computational efficiency and convergence behavior when applied to the Hidden Markov 
+Model. This comparison will help illustrate the practical differences between sampling 
+approaches and importance sampling methods for Bayesian inference.
 
 \section{Team Contribution Plan}
 
