@@ -13,6 +13,14 @@
 \usepackage{booktabs}
 \usepackage{subcaption}
 
+
+\usepackage{titlesec}
+
+\titlespacing*{\section}{0pt}{0.8ex}{0.3ex}
+\titlespacing*{\subsection}{0pt}{0.6ex}{0.2ex}
+\titlespacing*{\subsubsection}{0pt}{0.5ex}{0.15ex}
+
+
 % Citations
 \usepackage[american]{babel}
 \usepackage{csquotes}
@@ -41,14 +49,14 @@ sorting=nyt
 %------------------------------------------------
 
 \title{\large\bfseries
-hhh
+Explore the Best Bayesian Model for Dynamic Emotional Network
 }
 
 \author{
 \small
 Marc Shi,  Yu Chang \\
  \small
-University of British Columbia
+The University of British Columbia
 }
 
 \date{\small
@@ -60,6 +68,7 @@ April 2026
 %------------------------------------------------
 
 \begin{document}
+
 
 \maketitle
 
@@ -77,13 +86,57 @@ In addition to comparing modeling approaches, we also investigate different algo
 
 \section{Exploratory Data Analysis}
 
-Describe the dataset and show preliminary plots.
+\subsection{Choosing the Initial Focal Emotion}
 
+Before fitting the Bayesian models, we carried out a brief exploratory screening analysis to identify a reasonable initial emotion for the univariate naive model. We used a two-step procedure.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{corr_heatmap.pdf}
+    \caption{Spearman correlation heatmap for the nine emotion variables.}
+    \label{fig:corr_heatmap}
+\end{figure}
+
+First, we examined the Spearman correlation heatmap for the nine emotion variables (Figure~\ref{fig:corr_heatmap}). The heatmap showed that \texttt{happy} was strongly associated with several other positive emotions, especially \texttt{pleased} and \texttt{enthusiastic}, while also showing moderate negative association with several negative emotions. This suggested that \texttt{happy} may occupy a relatively central position in the emotion system.
+
+Second, because correlation alone does not fully capture predictive ability, we performed a one-step-ahead screening analysis using leave-one-subject-out cross-validation. For each candidate predictor emotion $j$, we compared a baseline model using only the target emotion's own lagged value with an augmented model that also included $j$ as a lagged predictor. We then summarized the overall predictive usefulness of emotion $j$ by
+\[
+\mathrm{Score}(j)
+=
+\frac{1}{K-1}
+\sum_{k \ne j}
+\frac{\mathrm{MSE}_{\text{baseline},k}-\mathrm{MSE}_{\text{augmented},k}}
+{\mathrm{MSE}_{\text{baseline},k}},
+\]
+where $K=9$ is the number of emotions. This score is the mean relative reduction in out-of-sample mean squared error across all other target emotions.
+
+Due to the sake of space, we included Table~\ref{tab:overall_scores} of the resulting ranking in the appendix with a more detailed explanation. Under this criterion, \texttt{happy} ranked first, with the largest mean relative reduction in prediction error. Since \texttt{happy} was supported by both the correlation-based and predictive screening analyses, we selected it as the focal emotion for the univariate naive Bayesian model.
+
+\subsection{Temporal Dependence of Happy}
+
+To examine whether \texttt{happy} exhibits temporal dependence, we first considered the autocorrelation function (ACF) of the average \texttt{happy} series over the ordered day-by-beep index. As shown in Figure~\ref{fig:happy_acf_ccf_combined}, the lag-1 autocorrelation is relatively weak, but there are clear positive spikes at lags 5, 10, and 15. Since the data contain five beeps per day, these peaks suggest a recurring day-level pattern in \texttt{happy} rather than a purely independent sequence. This provides empirical support for modelling temporal dependence instead of assuming an i.i.d.\ structure.
+
+We then examined the cross-correlation function (CCF) between \texttt{happy} and two closely related positive emotions, \texttt{pleased} and \texttt{enthusiastic}. Figure~\ref{fig:happy_acf_ccf_combined} shows that both pairs display their strongest positive association near lag 0, indicating that these emotions tend to move together contemporaneously. The relationship between \texttt{happy} and \texttt{pleased} is especially strong, while the \texttt{happy}--\texttt{enthusiastic} association is somewhat weaker but still clearly positive around zero lag. In addition, several smaller peaks appear at multiples of 5, suggesting that these positive emotions may share a similar daily rhythm. Overall, these plots indicate that \texttt{happy} is temporally structured and closely connected to other positive emotions, which supports the use of time-dependent latent-state models.
+
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{happy_acf_ccf_combined.pdf}
+    \caption{Autocorrelation of \texttt{happy} and cross-correlations of \texttt{happy} with \texttt{pleased} and \texttt{enthusiastic}.}
+    \label{fig:happy_acf_ccf_combined}
+\end{figure}
 
 
 \section{Methodology}
 
-Describe the models used in the analysis.
+\subsection{Naive Model}
+
+We first consider a naive latent-state baseline model for \texttt{happy}. In this model, each observed happiness score is assumed to arise from one of \(K\) latent emotional states, but the latent states are treated as independent across observations and therefore do not evolve over time. Specifically,
+\[
+z_n \sim \mathrm{Categorical}(\boldsymbol{\pi}), \qquad
+y_n \mid z_n = k \sim \mathcal{N}(\mu_k, \sigma^2),
+\]
+where \(z_n\) denotes the latent state associated with observation \(n\), and \(y_n\) is the observed \texttt{happy} score. Here, \(\boldsymbol{\pi}\) represents the mixture weights, \(\mu_k\) is the state-specific mean for latent state \(k\), and \(\sigma^2\) is a shared within-state variance. The data are n out of N, where N is the total number of available \texttt{happy} observations across all participants and time points. This baseline preserves a latent-state interpretation while intentionally removing temporal dependence, making it a natural benchmark against the Hidden Markov Model.
 
 \section{Results}
 
@@ -100,6 +153,63 @@ Summarize findings and discuss implications.
 \section*{Author Contributions}
 
 Describe contributions of each team member.
+
+
+
+
+\section{appendix}
+
+\subsection{Leave-One-Subject-Out Predictive Screening for Variable Selection}
+\label{app:loo_screening}
+
+To rank the candidate emotions by predictive usefulness, we carried out a leave-one-subject-out one-step-ahead prediction analysis. For each ordered predictor--target pair $(j,k)$ with $j \neq k$, we compared a baseline model and an augmented model:
+\begin{align}
+\text{Baseline model:}\qquad
+Y_{i,t+1}^{(k)} &= \alpha_k + \beta_k Y_{i,t}^{(k)} + \varepsilon_{i,t}^{(k)}, \\
+\text{Augmented model:}\qquad
+Y_{i,t+1}^{(k)} &= \alpha_k + \beta_k Y_{i,t}^{(k)} + \gamma_{jk} Y_{i,t}^{(j)} + \varepsilon_{i,t}^{(k)}.
+\end{align}
+Here, the baseline model predicts the next value of target emotion $k$ using only its own lagged value, while the augmented model additionally includes predictor emotion $j$ at the previous time point. Thus, the augmented model tests whether emotion $j$ provides incremental predictive information beyond the target emotion's own temporal dependence.
+
+Prediction performance was evaluated using leave-one-subject-out cross-validation. In each fold, one subject was held out as the test set, the models were fitted on the remaining subjects, and prediction error was computed on the held-out subject. This was repeated for every subject and then aggregated.
+
+For each predictor emotion $j$, we summarized its overall predictive usefulness across all other target emotions by
+\begin{equation}
+\mathrm{Score}(j)
+=
+\frac{1}{K-1}
+\sum_{k \ne j}
+\frac{\mathrm{MSE}_{\text{baseline},k}-\mathrm{MSE}_{\text{augmented},k}}
+{\mathrm{MSE}_{\text{baseline},k}},
+\end{equation}
+where $K=9$ is the number of emotions. This score is the mean relative reduction in out-of-sample mean squared error across all other target emotions. Larger values indicate stronger average incremental predictive value.
+
+Table~\ref{tab:overall_scores} reports the resulting summary statistics. The column \texttt{total\_rmse\_gain} is the total reduction in RMSE across all target emotions, and \texttt{mean\_rmse\_gain} is the corresponding average reduction. The primary ranking criterion is \texttt{mean\_rel\_mse\_reduction}, which corresponds directly to the score above. Under this criterion, \texttt{happy} ranked first, indicating that it provided the largest average out-of-sample improvement when added as a lagged predictor for the remaining emotions. The column \texttt{median\_rel\_mse\_reduction} gives a more robust summary across targets and also placed \texttt{happy} first.
+
+\begin{table}[htbp]
+\centering
+\scriptsize
+\caption{Overall predictive screening scores from leave-one-subject-out cross-validation. Emotions were ranked primarily by mean relative MSE reduction.}
+\label{tab:overall_scores}
+\begin{tabular}{lrrrr}
+\hline
+Predictor & Total RMSE Gain & Mean RMSE Gain & Mean Relative MSE Reduction & Median Relative MSE Reduction \\
+\hline
+happy        & 0.026735 & 0.003342 & 0.005293 & 0.004320 \\
+enthusiastic & 0.017941 & 0.002243 & 0.003581 & 0.003008 \\
+relaxed      & 0.015705 & 0.001963 & 0.003187 & 0.003463 \\
+pleased      & 0.012549 & 0.001568 & 0.002535 & 0.002532 \\
+nervous      & 0.010544 & 0.001318 & 0.002081 & 0.001074 \\
+stressed     & 0.008082 & 0.001010 & 0.001651 & 0.001179 \\
+sad          & 0.007534 & 0.000942 & 0.001546 & 0.001556 \\
+irritated    & 0.001180 & 0.000147 & 0.000307 & -0.000136 \\
+angry        & -0.003500 & -0.000438 & -0.000716 & -0.000738 \\
+\hline
+\end{tabular}
+\end{table}
+
+
+
 
 \printbibliography
 
