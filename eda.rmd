@@ -1,0 +1,586 @@
+---
+  title: "STAT 405 Course Project"
+subtitle: "Exploratory Data Analysis and Bayesian Modeling of Emotional Dynamics"
+author:
+  - name: Yu Chang
+email: changy72@student.ubc.ca
+- name: Marc Shi
+email: lianjies@student.ubc.ca
+date: today
+format:
+  pdf:
+  toc: true
+number-sections: true
+colorlinks: true
+fig-pos: "H"
+geometry: margin=1in
+fontsize: 11pt
+execute:
+  echo: true
+warning: false
+message: false
+editor: visual
+---
+
+Predictive Power:
+
+```{r}
+
+library(readr)
+library(dplyr)
+library(tidyr)
+library(purrr)
+
+# ---------------------------
+# 1) Read data
+# ---------------------------
+dat <- read_tsv("Data/Backup/backup.tsv", show_col_types = FALSE)
+
+emotions <- c(
+  "angry", "enthusiastic", "happy", "irritated",
+  "nervous", "pleased", "relaxed", "sad", "stressed"
+)
+
+# ---------------------------
+# 2) Build lag-1 transitions
+#    - sort within subject
+#    - keep only truly adjacent prompts
+#    - within-subject center emotions
+# ---------------------------
+prepare_lagged_data <- function(df, emotions, beeps_per_day = 5) {
+  df %>%
+    arrange(id, day, beep) %>%
+    group_by(id) %>%
+    mutate(
+      slot = (day - 1L) * beeps_per_day + beep
+    ) %>%
+    mutate(
+      across(
+        all_of(emotions),
+        ~ .x - mean(.x, na.rm = TRUE),
+        .names = "{.col}_c"
+      )
+    ) %>%
+    mutate(
+      next_slot = lead(slot)
+    ) %>%
+    mutate(
+      across(
+        all_of(c(emotions, paste0(emotions, "_c"))),
+        lead,
+        .names = "next_{.col}"
+      )
+    ) %>%
+    ungroup() %>%
+    filter(next_slot == slot + 1L)
+}
+
+lagged_dat <- prepare_lagged_data(dat, emotions)
+
+# ---------------------------
+# 3) Score one predictor-target pair
+#    Goal:
+#      predict target_(t+1)
+#      baseline:   target_(t+1) ~ target_t
+#      augmented:  target_(t+1) ~ target_t + predictor_t
+#
+#    CV:
+#      leave-one-subject-out
+# ---------------------------
+score_one_pair <- function(data, predictor, target) {
+  pred_c <- paste0(predictor, "_c")
+  targ_c <- paste0(target, "_c")
+  next_targ_c <- paste0("next_", target, "_c")
+
+  dd <- data %>%
+    select(id, all_of(c(pred_c, targ_c, next_targ_c))) %>%
+    drop_na()
+
+  ids <- sort(unique(dd$id))
+
+  fold_scores <- map_dfr(ids, function(test_id) {
+    train <- dd %>% filter(id != test_id)
+    test  <- dd %>% filter(id == test_id)
+
+    if (nrow(train) < 20 || nrow(test) == 0) {
+      return(NULL)
+    }
+
+    fit0 <- lm(
+      formula = reformulate(termlabels = targ_c, response = next_targ_c),
+      data = train
+    )
+
+    fit1 <- lm(
+      formula = reformulate(termlabels = c(targ_c, pred_c), response = next_targ_c),
+      data = train
+    )
+
+    p0 <- predict(fit0, newdata = test)
+    p1 <- predict(fit1, newdata = test)
+    y  <- test[[next_targ_c]]
+
+    tibble(
+      id = test_id,
+      n_test = nrow(test),
+      sse0 = sum((y - p0)^2),
+      sse1 = sum((y - p1)^2)
+    )
+  })
+
+  if (nrow(fold_scores) == 0) {
+    return(tibble(
+      predictor = predictor,
+      target = target,
+      rmse_baseline = NA_real_,
+      rmse_augmented = NA_real_,
+      rmse_gain = NA_real_,
+      rel_mse_reduction = NA_real_,
+      n_obs = 0L
+    ))
+  }
+
+  mse0 <- sum(fold_scores$sse0) / sum(fold_scores$n_test)
+  mse1 <- sum(fold_scores$sse1) / sum(fold_scores$n_test)
+
+  tibble(
+    predictor = predictor,
+    target = target,
+    rmse_baseline = sqrt(mse0),
+    rmse_augmented = sqrt(mse1),
+    rmse_gain = sqrt(mse0) - sqrt(mse1),             # bigger = better
+    rel_mse_reduction = (mse0 - mse1) / mse0,        # bigger = better
+    n_obs = sum(fold_scores$n_test)
+  )
+}
+
+# ---------------------------
+# 4) Run all predictor-target pairs
+# ---------------------------
+pair_grid <- expand_grid(
+  predictor = emotions,
+  target = emotions
+) %>%
+  filter(predictor != target)
+
+pair_scores <- pmap_dfr(
+  pair_grid,
+  ~ score_one_pair(lagged_dat, ..1, ..2)
+)
+
+# ---------------------------
+# 5) Overall ranking of emotions
+# ---------------------------
+overall_scores <- pair_scores %>%
+  group_by(predictor) %>%
+  summarise(
+    total_rmse_gain = sum(rmse_gain, na.rm = TRUE),
+    mean_rmse_gain = mean(rmse_gain, na.rm = TRUE),
+    mean_rel_mse_reduction = mean(rel_mse_reduction, na.rm = TRUE),
+    median_rel_mse_reduction = median(rel_mse_reduction, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(mean_rel_mse_reduction), desc(total_rmse_gain))
+
+overall_scores
+pair_scores %>% arrange(desc(rel_mse_reduction))
+
+# ---------------------------
+# 6) Top 3 targets helped by each predictor
+# ---------------------------
+top_targets_per_predictor <- pair_scores %>%
+  group_by(predictor) %>%
+  arrange(desc(rel_mse_reduction), .by_group = TRUE) %>%
+  slice_head(n = 3) %>%
+  ungroup()
+
+top_targets_per_predictor
+
+# 按照real_mse_reduction的大小排序，然后每个predictor选三个
+
+#Interpretation of rel_mse_reduction for the pair: happy - pleased: 在控制 pleased 自己上一时刻的值以后，加入 happy_t 可以让对 pleased_(t+1) 的样本外预测误差下降大约 1.55%。
+# ---------------------------
+# 7) Winner
+# ---------------------------
+overall_scores
+
+# total_rmse_gain: 把这个predictor对所有target的rmse_gain全加起来
+#mean_rel_mse_reeduction: 这个predictor对所有其他targets的平均相对MSE改善比例
+
+ggsave("~/Desktop/overall.pdf", plot = p_corr,
+       width = 8, height = 6)
+```
+
+Spearman correlation
+
+```{r}
+
+#| label: corrplot-all-emotions
+#| fig-width: 7
+#| fig-height: 6
+#| message: false
+#| warning: false
+
+library(tidyverse)
+
+# select all emotion variables
+emotion_vars <- c(
+  "angry", "enthusiastic", "happy", "irritated",
+  "nervous", "pleased", "relaxed", "sad", "stressed"
+)
+
+emotion_data <- backup %>%
+  select(all_of(emotion_vars))
+
+# Spearman correlation matrix
+corr_mat <- cor(
+  emotion_data,
+  use = "pairwise.complete.obs",
+  method = "spearman"
+)
+
+# turn into long format for ggplot
+corr_df <- as.data.frame(as.table(corr_mat))
+
+p_corr <- ggplot(corr_df, aes(x = Var1, y = Var2, fill = Freq)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%.2f", Freq)), size = 3) +
+  scale_fill_gradient2(low = "steelblue4", mid = "white", high = "firebrick3",
+                       midpoint = 0, limits = c(-1, 1)) +
+  theme_minimal() +
+  labs(
+    title = "Spearman Correlation Plot for All Emotion Variables",
+    x = NULL,
+    y = NULL,
+    fill = "Correlation"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+
+p_corr
+ggsave("~/Desktop/correlation_heatmap.pdf", plot = p_corr,
+       width = 8, height = 6)
+```
+
+## ACF
+
+## Autocorrelation Within Emotions
+
+We first examine whether each emotion shows serial dependence over time. If repeated emotion measurements were approximately independent, then the autocorrelation function (ACF) should remain close to zero at small lags. In contrast, positive autocorrelation at nearby lags would suggest persistence in emotional intensity across adjacent prompts, which is more consistent with a sequential latent-state model than with an i.i.d. baseline.
+
+```{r}
+
+# libraries
+library(tidyverse)
+# data loading
+backup <- readr::read_tsv("Data/Backup/backup.tsv", show_col_types = FALSE)
+
+names(backup)
+dim(backup)
+head(backup)
+
+# create average emotion series over day x beep
+avg_series <- backup %>%
+  group_by(day, beep) %>%
+  summarise(
+    happy = mean(happy, na.rm = TRUE),
+    relaxed = mean(relaxed, na.rm = TRUE),
+    sad = mean(sad, na.rm = TRUE),
+    stressed = mean(stressed, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(day, beep)
+
+avg_series
+
+
+```
+
+```{r}
+avg_series$time_index <- 1:nrow(avg_series)
+
+# time series plots
+average_happy <- plot(avg_series$time_index, avg_series$happy, type = "l",
+     main = "Average Happy Over Ordered Day x Beep",
+     xlab = "Ordered day x beep index", ylab = "Mean happy")
+
+pdf("average_happy_plot.pdf", width = 8, height = 5)
+
+plot(avg_series$time_index, avg_series$happy, type = "l",
+     main = "Average happy over Ordered Day x Beep",
+     xlab = "ordered day x beep index", ylab = "Mean happy")
+
+dev.off()
+
+```
+
+# plot for an unique participants on Happy
+
+```{r}
+
+# choose one random participant
+random_id <- sample(unique(backup$id), 1)
+
+# create ordered time index within participant
+random_participant <- backup %>%
+  filter(id == random_id) %>%
+  arrange(day, beep) %>%
+  mutate(time_index = row_number())
+
+# plot happy time series for that participant
+plot(random_participant$time_index,
+     random_participant$happy,
+     type = "l",
+     lwd = 2,
+     main = paste("Happy for Random Participant", random_id),
+     xlab = "Ordered day x beep index",
+     ylab = "Happy")
+```
+
+# ACF + CCF
+
+```{r}
+library(tidyverse)
+
+# data loading
+
+candidate_predictors
+paste0(candidate_predictors, "_c")
+setdiff(paste0(candidate_predictors, "_c"), names(lagged_dat))
+
+backup <- readr::read_tsv("data/Backup/backup.tsv", show_col_types = FALSE)
+
+# create average emotion series over ordered day x beep
+avg_series <- backup %>%
+  group_by(day, beep) %>%
+  summarise(
+    happy = mean(happy, na.rm = TRUE),
+    pleased = mean(pleased, na.rm = TRUE),
+    enthusiastic = mean(enthusiastic, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(day, beep)
+
+# output one pdf with 3 plots in one row
+pdf("happy_acf_ccf_combined.pdf", width = 12, height = 4)
+
+par(mfrow = c(1, 3), mar = c(4, 4, 3, 1))
+
+acf(
+  avg_series$happy,
+  main = "ACF: Happy"
+)
+
+ccf(
+  avg_series$happy,
+  avg_series$pleased,
+  main = "CCF: Happy vs Pleased"
+)
+
+ccf(
+  avg_series$happy,
+  avg_series$enthusiastic,
+  main = "CCF: Happy vs Enthusiastic"
+)
+
+dev.off()
+
+# also show in RStudio
+par(mfrow = c(1, 3), mar = c(4, 4, 3, 1))
+
+acf(
+  avg_series$happy,
+  main = "ACF: Happy"
+)
+
+ccf(
+  avg_series$happy,
+  avg_series$pleased,
+  main = "CCF: Happy vs Pleased"
+)
+
+ccf(
+  avg_series$happy,
+  avg_series$enthusiastic,
+  main = "CCF: Happy vs Enthusiastic"
+)
+
+par(mfrow = c(1, 1))
+
+
+```
+
+# Forward Selection
+
+```{r}
+
+library(tidyverse)
+
+score_candidate_for_happy <- function(data, selected = character(0), candidate) {
+  # ---------- clean selected ----------
+  if (is.null(selected) || length(selected) == 0) {
+    selected_terms <- character(0)
+  } else {
+    selected <- as.character(selected)
+    selected <- selected[!is.na(selected)]
+    selected <- selected[nzchar(selected)]
+    selected_terms <- paste0(selected, "_c")
+  }
+
+  # ---------- clean candidate ----------
+  candidate <- as.character(candidate)
+  candidate <- candidate[!is.na(candidate)]
+  candidate <- candidate[nzchar(candidate)]
+
+  if (length(candidate) != 1) {
+    stop("candidate must be exactly one non-empty string.")
+  }
+
+  candidate_term <- paste0(candidate, "_c")
+
+  # ---------- formulas ----------
+  base_terms <- c("happy_c", selected_terms)
+  aug_terms  <- c(base_terms, candidate_term)
+
+  needed_cols <- unique(c("id", "next_happy_c", aug_terms))
+
+  # ---------- check columns ----------
+  missing_cols <- setdiff(needed_cols, names(data))
+  if (length(missing_cols) > 0) {
+    stop("Missing columns in data: ", paste(missing_cols, collapse = ", "))
+  }
+
+  dd <- data %>%
+    select(all_of(needed_cols)) %>%
+    drop_na()
+
+  ids <- sort(unique(dd$id))
+
+  fold_scores <- purrr::map_dfr(ids, function(test_id) {
+    train <- dd %>% filter(id != test_id)
+    test  <- dd %>% filter(id == test_id)
+
+    if (nrow(train) < 20 || nrow(test) == 0) {
+      return(NULL)
+    }
+
+    fit_base <- lm(
+      reformulate(termlabels = base_terms, response = "next_happy_c"),
+      data = train
+    )
+
+    fit_aug <- lm(
+      reformulate(termlabels = aug_terms, response = "next_happy_c"),
+      data = train
+    )
+
+    p_base <- predict(fit_base, newdata = test)
+    p_aug  <- predict(fit_aug, newdata = test)
+    y_test <- test$next_happy_c
+
+    tibble(
+      id = test_id,
+      n_test = nrow(test),
+      sse_base = sum((y_test - p_base)^2),
+      sse_aug  = sum((y_test - p_aug)^2)
+    )
+  })
+
+  if (nrow(fold_scores) == 0) {
+    return(tibble(
+      candidate = candidate,
+      rmse_base = NA_real_,
+      rmse_aug = NA_real_,
+      rmse_gain = NA_real_,
+      rel_mse_reduction = NA_real_,
+      n_obs = 0L
+    ))
+  }
+
+  mse_base <- sum(fold_scores$sse_base) / sum(fold_scores$n_test)
+  mse_aug  <- sum(fold_scores$sse_aug)  / sum(fold_scores$n_test)
+
+  tibble(
+    candidate = candidate,
+    rmse_base = sqrt(mse_base),
+    rmse_aug = sqrt(mse_aug),
+    rmse_gain = sqrt(mse_base) - sqrt(mse_aug),
+    rel_mse_reduction = (mse_base - mse_aug) / mse_base,
+    n_obs = sum(fold_scores$n_test)
+  )
+}
+
+forward_select_happy_predictors <- function(data, candidates, max_steps = 3) {
+  candidates <- as.character(candidates)
+  candidates <- candidates[!is.na(candidates)]
+  candidates <- candidates[nzchar(candidates)]
+  candidates <- unique(candidates)
+
+  selected <- character(0)
+  history <- list()
+
+  for (step in seq_len(max_steps)) {
+    remaining <- setdiff(candidates, selected)
+
+    if (length(remaining) == 0) break
+
+    step_scores <- purrr::map_dfr(
+      remaining,
+      function(x) score_candidate_for_happy(data, selected, x)
+    ) %>%
+      arrange(desc(rel_mse_reduction), desc(rmse_gain))
+
+    best <- step_scores %>% slice(1)
+
+    selected <- c(selected, best$candidate)
+
+    history[[step]] <- list(
+      step = step,
+      selected_so_far = selected,
+      ranking = step_scores,
+      best = best
+    )
+  }
+
+  list(
+    selected = selected,
+    history = history
+  )
+}
+
+fs_result <- forward_select_happy_predictors(
+  data = lagged_dat,
+  candidates = candidate_predictors,
+  max_steps = 3
+)
+
+fs_result$selected
+
+forward_summary <- bind_rows(
+  lapply(fs_result$history, function(x) {
+    x$best %>%
+      mutate(
+        step = x$step,
+        selected_so_far = paste(x$selected_so_far, collapse = ", ")
+      ) %>%
+      select(
+        step, candidate, rmse_base, rmse_aug,
+        rmse_gain, rel_mse_reduction, n_obs, selected_so_far
+      )
+  })
+)
+
+forward_summary
+
+library(gridExtra)
+library(grid)
+
+pdf("forward_summary_table.pdf", width = 12, height = 3)
+
+grid.table(forward_summary)
+
+dev.off()
+
+```

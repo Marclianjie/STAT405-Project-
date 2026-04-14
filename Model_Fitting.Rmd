@@ -1,0 +1,68 @@
+---
+title: "Model_fitting"
+output: html_document
+date: "2026-04-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+```{r}
+library(tidyverse)
+library(cmdstanr)
+library(posterior)
+
+backup <- readr::read_tsv("data/Backup/backup.tsv", show_col_types = FALSE)
+
+y <- backup$happy
+y <- y[!is.na(y)]
+
+K <- 3
+
+stan_data <- list(
+  N = length(y),
+  K = K,
+  y = y
+)
+
+init_fun <- function() {
+  list(
+    pi = rep(1 / K, K),
+    mu = as.numeric(quantile(y, probs = c(0.2, 0.5, 0.8))),
+    sigma = sd(y) / 2
+  )
+}
+
+mod <- cmdstan_model("naive_happy_mixture.stan")
+
+fit <- mod$sample(
+  data = stan_data,
+  init = init_fun,
+  seed = 1234,
+  chains = 4,
+  parallel_chains = 4,
+  iter_warmup = 1000,
+  iter_sampling = 1000,
+  adapt_delta = 0.95,
+  refresh = 200
+)
+
+```
+
+
+#Posterior Predictive Check:
+
+```{r}
+draws_yrep <- fit$draws("y_rep", format = "matrix")
+y_rep_mean <- colMeans(draws_yrep)
+
+par(mfrow = c(1, 2))
+hist(y, breaks = 20, main = "Observed happy", xlab = "happy")
+hist(y_rep_mean, breaks = 20, main = "Posterior predictive mean", xlab = "y_rep mean")
+par(mfrow = c(1, 1))
+
+```
