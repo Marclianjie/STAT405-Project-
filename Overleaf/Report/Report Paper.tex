@@ -209,6 +209,34 @@ angry        & -0.003500 & -0.000438 & -0.000716 & -0.000738 \\
 \end{table}
 
 
+\subsection{Forward Selection for Additional Predictors of \texttt{happy}}
+\label{app:forward_selection_happy}
+
+We used a forward-selection procedure to identify additional emotion variables that help predict future \texttt{happy}. At each step, we started from a baseline model containing \(\texttt{happy}_{i,t}\), then added one candidate emotion at time \(t\), and selected the candidate that gave the largest improvement in one-step-ahead prediction of \(\texttt{happy}_{i,t+1}\).
+
+Prediction performance was evaluated using leave-one-subject-out cross-validation. In each fold, one subject was held out as the test set, the model was fitted on the remaining subjects, and prediction error was computed on the held-out subject. Candidates were ranked by their relative reduction in out-of-sample mean squared error,
+\[
+\frac{\mathrm{MSE}_{\text{base}}-\mathrm{MSE}_{\text{aug}}}{\mathrm{MSE}_{\text{base}}},
+\]
+where larger values indicate stronger incremental predictive value.
+
+Table~\ref{tab:forward_selection_happy} shows the selected predictors at each step. The first three selected variables were \texttt{enthusiastic}, \texttt{relaxed}, and \texttt{pleased}. The predictive gain was largest at the first step and became smaller afterwards, suggesting diminishing additional benefit as more closely related positive emotions were added.
+
+\begin{table}[htbp]
+\scriptsize
+\centering
+\caption{Forward-selection results for predicting future \texttt{happy}.}
+\label{tab:forward_selection_happy}
+\begin{tabular}{r l r r r r r l}
+\hline
+Step & Candidate & RMSE Base & RMSE Aug & RMSE Gain & Relative MSE Reduction & \(n_{\text{obs}}\) & Selected So Far \\
+\hline
+1 & enthusiastic & 1.165833 & 1.161850 & 0.003984 & 0.006822 & 5941 & enthusiastic \\
+2 & relaxed      & 1.161850 & 1.160139 & 0.001711 & 0.002943 & 5941 & enthusiastic, relaxed \\
+3 & pleased      & 1.160221 & 1.159928 & 0.000293 & 0.000505 & 5940 & enthusiastic, relaxed, pleased \\
+\hline
+\end{tabular}
+\end{table}
 
 
 \printbibliography
