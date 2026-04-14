@@ -138,6 +138,40 @@ y_n \mid z_n = k \sim \mathcal{N}(\mu_k, \sigma^2),
 \]
 where \(z_n\) denotes the latent state associated with observation \(n\), and \(y_n\) is the observed \texttt{happy} score. Here, \(\boldsymbol{\pi}\) represents the mixture weights, \(\mu_k\) is the state-specific mean for latent state \(k\), and \(\sigma^2\) is a shared within-state variance. The data are n out of N, where N is the total number of available \texttt{happy} observations across all participants and time points. This baseline preserves a latent-state interpretation while intentionally removing temporal dependence, making it a natural benchmark against the Hidden Markov Model.
 
+
+\subsection{Hidden Markov Model}
+
+We next extend the naive latent-state baseline by allowing the latent emotional state to evolve over time according to a first-order Markov process. For subject \(i\) at time \(t\), let \(z_{i,t} \in \{1,\dots,K\}\) denote the latent state and let \(y_{i,t}\) denote the observed \texttt{happy} score. The model is
+\[
+z_{i,1} \sim \mathrm{Categorical}(\boldsymbol{\delta}), \qquad
+z_{i,t} \mid z_{i,t-1}=j \sim \mathrm{Categorical}(\mathbf{A}_{j\cdot}), \quad t \ge 2,
+\]
+\[
+y_{i,t} \mid z_{i,t}=k \sim \mathcal{N}(\mu_k, \sigma^2).
+\]
+Here, \(\boldsymbol{\delta}\) is the initial state distribution, \(\mathbf{A}\) is the state transition matrix, \(\mu_k\) is the state-specific mean for latent state \(k\), and \(\sigma^2\) is a shared within-state variance. Compared with the naive baseline, this model preserves the latent-state interpretation while introducing temporal dependence through state transitions.
+
+Because the latent states are discrete, they are marginalized out in Stan using the forward algorithm, and posterior inference is performed using HMC/NUTS on the continuous model parameters.
+
+\subsection{Hidden Markov Model with Additional Predictors}
+
+Finally, we consider an extended Hidden Markov Model that incorporates additional lagged emotion variables selected from the forward-selection screening analysis. The selected predictors were \texttt{enthusiastic}, \texttt{relaxed}, and \texttt{pleased}. Let \(x_{i,t-1}\) denote the vector of lagged predictors at time \(t-1\). We retain the same latent-state dynamics as in the HMM, but allow the observed \texttt{happy} score to depend on both the current latent state and the lagged predictors:
+\[
+z_{i,1} \sim \mathrm{Categorical}(\boldsymbol{\delta}), \qquad
+z_{i,t} \mid z_{i,t-1}=j \sim \mathrm{Categorical}(\mathbf{A}_{j\cdot}), \quad t \ge 2,
+\]
+\[
+y_{i,1} \mid z_{i,1}=k \sim \mathcal{N}(\mu_k, \sigma^2),
+\]
+\[
+y_{i,t} \mid z_{i,t}=k \sim \mathcal{N}\!\left(\mu_k + \phi\,y_{i,t-1} + \boldsymbol{\beta}^{\top} x_{i,t-1}, \sigma^2 \right), \quad t \ge 2.
+\]
+Here, \(\phi\) captures direct autoregressive dependence in \texttt{happy}, while \(\boldsymbol{\beta}\) measures the contribution of the selected lagged predictors. This model allows future \texttt{happy} to be explained jointly by latent state persistence and observed emotional covariates.
+
+
+
+
+
 \section{Results}
 
 Present forecasting results and model comparisons.
