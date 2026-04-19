@@ -165,12 +165,7 @@ We place priors
 \beta_5 \sim \mathcal{N}(0,1), \qquad
 \sigma \sim \mathrm{Exponential}(1).
 \]
-The observation model remains the same as in the naive model:
-\[
-y_i \mid x_i \sim \mathrm{OrderedLogistic}(x_i,\mathbf{c}),
-\qquad
-\mathbf{c}=(-2.5,-1.5,-0.5,0.5,1.5,2.5).
-\]
+The observation model remains the same as in the naive model.
 Unlike the naive model, this specification preserves the ordinal likelihood while introducing temporal dependence in the latent process. Missing observed happiness ratings are not removed from the time series; instead, the latent process is defined over all time points and the likelihood is applied only to observed responses, thereby preserving the lag structure.
 
 \subsubsection{Extended Model (with Time Structure and Additional Predictors)}
@@ -211,33 +206,76 @@ We place priors
 \gamma_3 \sim \mathcal{N}(0,1), \qquad
 \sigma \sim \mathrm{Exponential}(1).
 \]
-As before, the observation model is
-\[
-y_i \mid x_i \sim \mathrm{OrderedLogistic}(x_i,\mathbf{c}),
-\qquad
-\mathbf{c}=(-2.5,-1.5,-0.5,0.5,1.5,2.5).
-\]
+The observation model remains the same as in the previous models.
 This model allows future happiness ratings to be explained jointly by persistence in the latent happiness process and by lagged values of related positive-emotion variables.
 \subsection{Posterior Computation Methods}
 
+For each of the three models described above, posterior inference is carried out using two complementary approaches implemented in \texttt{Stan}: Hamiltonian Monte Carlo (HMC) and Variational Inference (VI).
+
+The primary method is Hamiltonian Monte Carlo, specifically the No-U-Turn Sampler (NUTS), which is used to generate samples from the exact posterior distribution up to Monte Carlo error. In addition, we employ variational inference as an approximate alternative. Variational inference reframes posterior computation as an optimization problem by approximating the true posterior distribution with a member of a predefined family of distributions. In this study, we use the mean-field variational family, which assumes independence among all parameters and latent variables. While this assumption enables substantial computational gains, it may lead to underestimation of posterior uncertainty and reduced accuracy when strong dependencies are present.
+
+To facilitate a direct comparison between the two approaches, we draw \(3000\) posterior samples from both methods. For HMC, these correspond to Monte Carlo samples obtained after warmup, while for variational inference, they are samples drawn from the optimized variational approximation. This allows for consistent evaluation of posterior summaries and predictive performance across methods.
 
 
 
-\section{Results}
+\section{Model and Posterior Comparison Results}
 
-Present forecasting results and model comparisons.
+To compare both model performance and the accuracy of posterior approximation methods, we evaluate predictive performance using approximate leave-one-out cross-validation (LOO), implemented via the \texttt{loo} package. This approach provides a principled, data-efficient measure of out-of-sample predictive ability without requiring an explicit train–test split.
 
-\section{Model Diagnostics}
+LOO estimates the expected log predictive density (ELPD), defined as
+\[
+\mathrm{ELPD} = \sum_{i=1}^N \log p(y_i \mid y_{-i}),
+\]
+where \(y_{-i}\) denotes the dataset with the \(i\)-th observation removed. Intuitively, ELPD measures how well a model predicts each observation when that observation is not used for fitting. Larger values of ELPD indicate better predictive performance.
 
-Discuss stationarity, and residual diagnostics.
+In practice, exact leave-one-out cross-validation is computationally expensive. The \texttt{loo} package uses Pareto-smoothed importance sampling (PSIS) to approximate LOO efficiently from posterior draws. This allows us to compute ELPD and its associated standard error for each model and inference method.
 
-\section{Conclusion}
+We compare models using differences in ELPD, along with their standard errors, as returned by \texttt{loo\_compare}. A large difference relative to its standard error indicates a meaningful difference in predictive performance. This framework enables a unified comparison across models of varying complexity (e.g., with or without temporal structure) and across posterior computation methods (HMC vs.\ variational inference). See Table~\ref{tab:loo-all-models} for the full comparison below. 
 
-Summarize findings and discuss implications.
+\begin{table}[htbp]
+\centering
+\caption{Approximate leave-one-out cross-validation results for all models and posterior computation methods. Higher ELPD indicates better out-of-sample predictive performance, while lower LOOIC indicates better predictive fit. The quantity \(p_{\mathrm{loo}}\) is the effective number of parameters.}
+\label{tab:loo-all-models}
+\begin{tabular}{llccc}
+\hline
+Model & Method & ELPD$_{\mathrm{loo}}$ (SE) & $p_{\mathrm{loo}}$ (SE) & LOOIC (SE) \\
+\hline
+Naive        & HMC & $-12490.6\ (24.4)$ & $1179.7\ (12.3)$ & $24981.2\ (48.8)$ \\
+Naive        & VI  & $-12570.8\ (29.4)$ & $789.6\ (8.5)$   & $25141.7\ (58.8)$ \\
+Intermediate & HMC & $-10597.5\ (32.5)$ & $645.5\ (8.3)$   & $21194.9\ (65.0)$ \\
+Intermediate & VI  & $-11068.1\ (31.4)$ & $786.0\ (9.1)$   & $22136.1\ (62.8)$ \\
+Extended     & HMC & $-10559.3\ (37.5)$ & $284.9\ (3.8)$   & $21118.5\ (75.0)$ \\
+Extended     & VI  & $-10708.0\ (42.6)$ & $19.2\ (0.2)$    & $21416.0\ (85.2)$ \\
+\hline
+\end{tabular}
+\end{table}
+
+Across model classes, we observe a clear improvement in predictive performance as model complexity increases: the naive model performs worst, reflecting the limitations of ignoring temporal dependence, while the intermediate model shows substantial improvement by incorporating latent time structure. The extended model, which additionally includes lagged emotional predictors, achieves the highest ELPD, indicating that both temporal dynamics and cross-emotion covariates contribute meaningfully to explaining variation in observed happiness. At the same time, within each model, Hamiltonian Monte Carlo (HMC) consistently outperforms variational inference (VI), as evidenced by higher ELPD values in all cases. The discrepancy between HMC and VI is modest for the naive model but becomes substantially larger for the intermediate and extended models, suggesting that mean-field variational inference fails to adequately capture the complex posterior dependence induced by temporal structure and latent dynamics. The magnitude of these ELPD differences relative to their standard errors indicates that the observed gaps are statistically meaningful rather than attributable to Monte Carlo variability. 
+
+
+\section{Model Diagnostics for HMC}
+
+\section{Conclusion and Discussion}
+
+Overall, the results demonstrate that incorporating temporal structure and additional predictors substantially improves predictive performance, and that HMC provides a more reliable posterior approximation than variational inference, with the extended model fitted via HMC achieving the best predictive accuracy among all specifications.
+
+For the HMC-based models, diagnostic checks indicate that the sampling procedure performs well. In particular, trace plots and rank plots exhibit good mixing behavior, with no evidence of pathological sampling or slow convergence. Furthermore, the empirical calibration check based on posterior predictive intervals does not raise systematic warnings, suggesting that the models are reasonably well-specified. The exact invariance test, implemented via a Kolmogorov–Smirnov test, yields non-significant results, providing additional evidence that the MCMC implementation is correct and does not suffer from coding errors or algorithmic bias.
+
+Despite these strengths, several limitations should be noted. First, the use of mean-field variational inference represents a restrictive approximation, particularly in the context of time-dependent latent models where strong posterior correlations are expected. This likely explains the substantial degradation in predictive performance observed for VI relative to HMC. Future work could explore richer variational families, such as full-rank approximations, or alternative methods such as normalizing flows or pathfinder-based initialization, to better capture posterior dependence while retaining computational efficiency. Second, although approximate leave-one-out cross-validation provides a principled measure of predictive performance, it does not fully account for the temporal ordering of observations. More rigorous time-series validation schemes, such as rolling-origin evaluation, could be considered in future studies.
+
+In summary, this study demonstrates the importance of both model structure and inference method in Bayesian analysis of longitudinal emotional data. Incorporating temporal dynamics and relevant predictors leads to substantial gains in predictive performance, while accurate posterior inference via HMC remains essential for reliable uncertainty quantification and model comparison.
 
 \section*{Author Contributions}
 
-Describe contributions of each team member.
+\section{Author Contributions}
+
+This project was completed through a collaborative effort between the two authors, with responsibilities divided to ensure both efficiency and consistency across different components of the study.
+
+Yu Chang was primarily responsible for conducting the literature review and drafting the introduction and background sections, including the theoretical motivation for the modeling approaches considered. Marc Shi was primarily responsible for the methodological development, implementation of the models in \texttt{Stan}, and the analysis of results, including posterior diagnostics and predictive performance evaluation.
+
+For the computational component, both authors independently implemented and ran different model specifications, which enabled cross-validation of results and ensured the robustness of the computational workflow. The final results, including model comparisons and tables, were compiled and organized by Marc Shi.
+
+Throughout the project, both authors collaborated closely by discussing modeling choices, validating intermediate results, and refining the structure and presentation of the report. Both authors contributed to editing and reviewing the final manuscript to ensure clarity, accuracy, and coherence.
 
 
 
@@ -330,7 +368,7 @@ Step & Candidate & RMSE Base & RMSE Aug & RMSE Gain & Relative MSE Reduction & \
 \hline
 \end{tabular}
 \end{table}
-
+\subsection{Implentation R codes}
 
 \printbibliography
 
