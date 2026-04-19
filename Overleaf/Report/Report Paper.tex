@@ -62,7 +62,8 @@ The University of British Columbia
 \date{\small
 STAT 405: Bayesian Statistics \\
 Instructor: Dr.~Alexandre Bouchard-Côté \\
-April 2026
+April 2026 \\
+\href{https://github.com/Marclianjie/STAT405-Project-}{GitHub Repo}
 }
 
 %------------------------------------------------
@@ -90,27 +91,9 @@ In addition to comparing modeling approaches, we also investigate different algo
 
 Before fitting the Bayesian models, we carried out a brief exploratory screening analysis to identify a reasonable initial emotion for the univariate naive model. We used a two-step procedure.
 
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.8\textwidth]{corr_heatmap.pdf}
-    \caption{Spearman correlation heatmap for the nine emotion variables.}
-    \label{fig:corr_heatmap}
-\end{figure}
-
 First, we examined the Spearman correlation heatmap for the nine emotion variables (Figure~\ref{fig:corr_heatmap}). The heatmap showed that \texttt{happy} was strongly associated with several other positive emotions, especially \texttt{pleased} and \texttt{enthusiastic}, while also showing moderate negative association with several negative emotions. This suggested that \texttt{happy} may occupy a relatively central position in the emotion system.
 
-Second, because correlation alone does not fully capture predictive ability, we performed a one-step-ahead screening analysis using leave-one-subject-out cross-validation. For each candidate predictor emotion $j$, we compared a baseline model using only the target emotion's own lagged value with an augmented model that also included $j$ as a lagged predictor. We then summarized the overall predictive usefulness of emotion $j$ by
-\[
-\mathrm{Score}(j)
-=
-\frac{1}{K-1}
-\sum_{k \ne j}
-\frac{\mathrm{MSE}_{\text{baseline},k}-\mathrm{MSE}_{\text{augmented},k}}
-{\mathrm{MSE}_{\text{baseline},k}},
-\]
-where $K=9$ is the number of emotions. This score is the mean relative reduction in out-of-sample mean squared error across all other target emotions.
-
-Due to the sake of space, we included Table~\ref{tab:overall_scores} of the resulting ranking in the appendix with a more detailed explanation. Under this criterion, \texttt{happy} ranked first, with the largest mean relative reduction in prediction error. Since \texttt{happy} was supported by both the correlation-based and predictive screening analyses, we selected it as the focal emotion for the univariate naive Bayesian model.
+Second, because correlation alone does not fully capture predictive ability, we performed a one-step-ahead screening analysis using leave-one-subject-out cross-validation. See Table~\ref{tab:overall_scores} of the resulting ranking in the appendix for a more detailed explanation. Under this criterion, \texttt{happy} ranked first, with the largest mean relative reduction in prediction error. Since \texttt{happy} was supported by both the correlation-based and predictive screening analyses, we selected it as the focal emotion for the univariate naive Bayesian model.
 
 \subsection{Temporal Dependence of Happy}
 
@@ -128,46 +111,114 @@ We then examined the cross-correlation function (CCF) between \texttt{happy} and
 
 
 \section{Methodology}
+\subsection{Models}
+\subsubsection{Naive Model}
 
-\subsection{Naive Model}
-
-We first consider a naive latent-state baseline model for \texttt{happy}. In this model, each observed happiness score is assumed to arise from one of \(K\) latent emotional states, but the latent states are treated as independent across observations and therefore do not evolve over time. Specifically,
+As a baseline, we use an independent latent-variable model with an ordered logistic likelihood. For each observation \(i=1,\dots,N\), let \(y_i \in \{1,2,3,4,5,6,7\}\) denote the observed ordinal happiness rating and let \(x_i \in \mathbb{R}\) denote a latent continuous happiness level. We assume
 \[
-z_n \sim \mathrm{Categorical}(\boldsymbol{\pi}), \qquad
-y_n \mid z_n = k \sim \mathcal{N}(\mu_k, \sigma^2),
+x_i \overset{\mathrm{iid}}{\sim} \mathcal{N}(\mu,\sigma^2),
+\qquad
+\mu \sim \mathcal{N}(0,1.5^2),
+\qquad
+\sigma \sim \mathrm{Exponential}(1).
 \]
-where \(z_n\) denotes the latent state associated with observation \(n\), and \(y_n\) is the observed \texttt{happy} score. Here, \(\boldsymbol{\pi}\) represents the mixture weights, \(\mu_k\) is the state-specific mean for latent state \(k\), and \(\sigma^2\) is a shared within-state variance. The data are n out of N, where N is the total number of available \texttt{happy} observations across all participants and time points. This baseline preserves a latent-state interpretation while intentionally removing temporal dependence, making it a natural benchmark against the Hidden Markov Model.
-
-
-\subsection{Hidden Markov Model}
-
-We next extend the naive latent-state baseline by allowing the latent emotional state to evolve over time according to a first-order Markov process. For subject \(i\) at time \(t\), let \(z_{i,t} \in \{1,\dots,K\}\) denote the latent state and let \(y_{i,t}\) denote the observed \texttt{happy} score. The model is
+Conditional on \(x_i\), the response follows an ordered logistic model,
 \[
-z_{i,1} \sim \mathrm{Categorical}(\boldsymbol{\delta}), \qquad
-z_{i,t} \mid z_{i,t-1}=j \sim \mathrm{Categorical}(\mathbf{A}_{j\cdot}), \quad t \ge 2,
+y_i \mid x_i \sim \mathrm{OrderedLogistic}(x_i,\mathbf{c}),
+\]
+where the cutpoints are fixed at
+\[
+\mathbf{c}=(-2.5,-1.5,-0.5,0.5,1.5,2.5).
+\]
+These cutpoints place \(0\) at the center of the latent scale, corresponding to the middle of the 7-point response scale. Equivalently, the model can be written using a latent logistic noise term:
+\[
+y_i =
+\begin{cases}
+1, & x_i+\epsilon_i \le c_1,\\
+2, & c_1 < x_i+\epsilon_i \le c_2,\\
+\vdots \\
+7, & x_i+\epsilon_i > c_6,
+\end{cases}
+\qquad
+\epsilon_i \sim \mathrm{Logistic}(0,1).
+\]
+This naive model ignores temporal dependence, subject-specific dynamics, and cross-emotion effects, and instead treats all observations as exchangeable draws from a common latent distribution.
+
+\subsubsection{Intermediate Model (with Time Structure)}
+
+We next extend the naive model by allowing the latent happiness process to evolve over time. Let \(x_i\) again denote the latent continuous happiness state at observation \(i\). For observations with available lagged values, we assume
+\[
+x_i \mid x_{i-1},x_{i-5} \sim \mathcal{N}(\mu_i,\sigma^2),
+\]
+with conditional mean
+\[
+\mu_i = \alpha + \beta_1 x_{i-1} + \beta_5 x_{i-5}.
+\]
+Thus, the current latent happiness level depends on both the immediately previous latent state and the latent state five prompts earlier. For early observations where the required lags are unavailable, the latent state is initialized from the baseline level:
+\[
+x_i \sim \mathcal{N}(\alpha,\sigma^2).
+\]
+We place priors
+\[
+\alpha \sim \mathcal{N}(0,1.5^2), \qquad
+\beta_1 \sim \mathcal{N}(0,1), \qquad
+\beta_5 \sim \mathcal{N}(0,1), \qquad
+\sigma \sim \mathrm{Exponential}(1).
+\]
+The observation model remains the same as in the naive model:
+\[
+y_i \mid x_i \sim \mathrm{OrderedLogistic}(x_i,\mathbf{c}),
+\qquad
+\mathbf{c}=(-2.5,-1.5,-0.5,0.5,1.5,2.5).
+\]
+Unlike the naive model, this specification preserves the ordinal likelihood while introducing temporal dependence in the latent process. Missing observed happiness ratings are not removed from the time series; instead, the latent process is defined over all time points and the likelihood is applied only to observed responses, thereby preserving the lag structure.
+
+\subsubsection{Extended Model (with Time Structure and Additional Predictors)}
+
+Finally, we consider an extension of the intermediate model that incorporates additional lagged emotion predictors. Based on the exploratory screening analysis, the selected predictors were \texttt{enthusiastic}, \texttt{pleased}, and \texttt{relaxed}. Let
+\[
+e_{i-1}, \quad p_{i-1}, \quad r_{i-1}
+\]
+denote the lagged values of these three predictors at the previous prompt. We then model the latent happiness state as
+\[
+x_i \mid x_{i-1},x_{i-5},e_{i-1},p_{i-1},r_{i-1}
+\sim \mathcal{N}(\mu_i,\sigma^2),
+\]
+where
+\[
+\mu_i
+=
+\alpha
++\beta_1 x_{i-1}
++\beta_5 x_{i-5}
++\gamma_1 e_{i-1}
++\gamma_2 p_{i-1}
++\gamma_3 r_{i-1}.
+\]
+Here, \(\beta_1\) and \(\beta_5\) capture autoregressive dependence in latent happiness, while \(\gamma_1,\gamma_2,\gamma_3\) measure the contributions of lagged enthusiasm, pleased, and relaxed scores, respectively. For observations where lagged values are unavailable, the latent state is again initialized from
+\[
+x_i \sim \mathcal{N}(\alpha,\sigma^2).
+\]
+We place priors
+\[
+\alpha \sim \mathcal{N}(0,1.5^2), \qquad
+\beta_1 \sim \mathcal{N}(0,1), \qquad
+\beta_5 \sim \mathcal{N}(0,1),
 \]
 \[
-y_{i,t} \mid z_{i,t}=k \sim \mathcal{N}(\mu_k, \sigma^2).
+\gamma_1 \sim \mathcal{N}(0,1), \qquad
+\gamma_2 \sim \mathcal{N}(0,1), \qquad
+\gamma_3 \sim \mathcal{N}(0,1), \qquad
+\sigma \sim \mathrm{Exponential}(1).
 \]
-Here, \(\boldsymbol{\delta}\) is the initial state distribution, \(\mathbf{A}\) is the state transition matrix, \(\mu_k\) is the state-specific mean for latent state \(k\), and \(\sigma^2\) is a shared within-state variance. Compared with the naive baseline, this model preserves the latent-state interpretation while introducing temporal dependence through state transitions.
-
-Because the latent states are discrete, they are marginalized out in Stan using the forward algorithm, and posterior inference is performed using HMC/NUTS on the continuous model parameters.
-
-\subsection{Hidden Markov Model with Additional Predictors}
-
-Finally, we consider an extended Hidden Markov Model that incorporates additional lagged emotion variables selected from the forward-selection screening analysis. The selected predictors were \texttt{enthusiastic}, \texttt{relaxed}, and \texttt{pleased}. Let \(x_{i,t-1}\) denote the vector of lagged predictors at time \(t-1\). We retain the same latent-state dynamics as in the HMM, but allow the observed \texttt{happy} score to depend on both the current latent state and the lagged predictors:
+As before, the observation model is
 \[
-z_{i,1} \sim \mathrm{Categorical}(\boldsymbol{\delta}), \qquad
-z_{i,t} \mid z_{i,t-1}=j \sim \mathrm{Categorical}(\mathbf{A}_{j\cdot}), \quad t \ge 2,
+y_i \mid x_i \sim \mathrm{OrderedLogistic}(x_i,\mathbf{c}),
+\qquad
+\mathbf{c}=(-2.5,-1.5,-0.5,0.5,1.5,2.5).
 \]
-\[
-y_{i,1} \mid z_{i,1}=k \sim \mathcal{N}(\mu_k, \sigma^2),
-\]
-\[
-y_{i,t} \mid z_{i,t}=k \sim \mathcal{N}\!\left(\mu_k + \phi\,y_{i,t-1} + \boldsymbol{\beta}^{\top} x_{i,t-1}, \sigma^2 \right), \quad t \ge 2.
-\]
-Here, \(\phi\) captures direct autoregressive dependence in \texttt{happy}, while \(\boldsymbol{\beta}\) measures the contribution of the selected lagged predictors. This model allows future \texttt{happy} to be explained jointly by latent state persistence and observed emotional covariates.
-
+This model allows future happiness ratings to be explained jointly by persistence in the latent happiness process and by lagged values of related positive-emotion variables.
+\subsection{Posterior Computation Methods}
 
 
 
@@ -193,8 +244,16 @@ Describe contributions of each team member.
 
 \section{appendix}
 
+
 \subsection{Leave-One-Subject-Out Predictive Screening for Variable Selection}
 \label{app:loo_screening}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{corr_heatmap.pdf}
+    \caption{Spearman correlation heatmap for the nine emotion variables.}
+    \label{fig:corr_heatmap}
+\end{figure}
 
 To rank the candidate emotions by predictive usefulness, we carried out a leave-one-subject-out one-step-ahead prediction analysis. For each ordered predictor--target pair $(j,k)$ with $j \neq k$, we compared a baseline model and an augmented model:
 \begin{align}
