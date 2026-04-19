@@ -1,4 +1,6 @@
-.Rproj.user
-.Rhistory
 .RData
-.Ruserdata
+.Rhistory
+.Rproj.user/
+stan_out/
+advanced_model
+intermediate_model
