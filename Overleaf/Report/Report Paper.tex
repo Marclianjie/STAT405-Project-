@@ -1,7 +1,7 @@
 \documentclass[12pt,letterpaper,fleqn]{article}
 
 % Page layout
-\usepackage[margin=1in]{geometry}
+\usepackage[margin=0.7in]{geometry}
 \usepackage{setspace}
 \onehalfspacing
 
@@ -75,13 +75,13 @@ April 2026 \\
 
 \section{Literature Review}
 
-Emotions play a fundamental role in psychological well-being and daily functioning, and understanding how emotional states evolve over time has become an important topic in psychology and behavioral science. Traditional research on affect has focused on static summaries of emotion, such as average levels of positive or negative affect measured through questionnaires. However, such approaches ignore the temporal dynamics of emotional experiences. Emotional states fluctuate continuously and are influenced by both internal processes and external factors, motivating recent research that models emotional experiences as dynamic systems in which emotions at one moment may influence emotions at later moments.
+Emotions play a fundamental role in psychological well-being and daily functioning, and understanding how emotional states evolve over time has become an important topic in psychology and behavioral science \cite{kuppens2017, houben2016, pirla2023}. Traditional research on affect has often relied on static summaries of emotion, such as average levels of positive or negative affect measured through questionnaires. However, such approaches ignore the temporal dynamics of emotional experiences. In reality, emotional states fluctuate continuously and are influenced by both internal processes and external factors, motivating recent work that models emotions as dynamic systems in which past states influence future states \cite{kuppens2017, haslbeck2022}. 
 
-Despite its strengths, this modeling approach implicitly assumes that the observed emotion scores directly represent the true emotional state of an individual. From a statistical perspective, this assumption can be viewed as naive because psychological measurements are often subject to measurement error. Self-reported emotion ratings may reflect not only the true emotional state but also random reporting noise. As a result, a natural Bayesian alternative is to introduce a latent-state formulation, in which the true emotional state is treated as an unobserved variable and the reported emotion scores are viewed as noisy observations generated from a likelihood distribution conditional on the underlying emotional state. This perspective allows the model to explicitly account for measurement error.
+Recent work in the experience sampling methodology (ESM) literature has emphasized the importance of modeling emotional dynamics in daily life. For example, \cite{Kullar2024} investigates how emotion measurements evolve over time and proposes improvements in measurement design to reduce reporting noise and improve reliability. However, such approaches typically treat the observed emotion scores as direct representations of the underlying emotional state. From a statistical perspective, this assumption can be restrictive, as psychological measurements are subject to substantial measurement error. Self-reported emotion ratings may reflect both the true emotional state and additional reporting noise, rather than the latent state itself.
 
-In this project, we adopt such a Bayesian framework to study emotional dynamics using the ESM dataset. We consider three models. The first is a naive Bayesian model that assumes the latent emotional states are independent across time. The second is a Hidden Markov Model (HMM), in which the latent emotional state evolves according to a Markov transition process over time. The third is an HMM with exogenous factors, where additional external variables influence the current emotional state. By comparing these models, we aim to investigate whether incorporating temporal dependence and exogenous variables improves predictive performance and provides a better explanation of the observed emotional measurements through the generative model.
+To address this limitation, a natural Bayesian approach is to introduce a latent-state formulation, in which the true emotional state is treated as an unobserved continuous variable and the observed ratings are modeled as noisy realizations generated from a likelihood distribution conditional on this latent state. This framework explicitly accounts for measurement error and allows for a more principled generative interpretation of the data. In this project, we adopt such a Bayesian latent-variable framework to study emotional dynamics using the ESM dataset. We consider three progressively richer models: a naive baseline with independent latent states, a dynamic latent-state model with autoregressive structure, and an extended model that incorporates lagged emotional predictors. By comparing these models, we aim to evaluate whether incorporating temporal dependence and additional predictors improves predictive performance and provides a better explanation of the observed emotional measurements.
 
-In addition to comparing modeling approaches, we also investigate different algorithms for approximating the posterior distribution. Specifically, we compare two Bayesian inference methods: Hamiltonian Monte Carlo (HMC) and Variational Inference (VI). By applying both algorithms to our Hidden Markov Model, we aim to examine the trade-off between computational efficiency and posterior accuracy in modeling emotional dynamics.
+In addition to comparing modeling approaches, we also examine different methods for approximating the posterior distribution. Specifically, we compare Hamiltonian Monte Carlo (HMC), which provides asymptotically exact posterior samples, with variational inference (VI), which offers a computationally efficient but approximate alternative. This allows us to assess the trade-off between computational efficiency and approximation accuracy in modeling emotional dynamics.
 
 
 
@@ -369,7 +369,7 @@ Step & Candidate & RMSE Base & RMSE Aug & RMSE Gain & Relative MSE Reduction & \
 \end{tabular}
 \end{table}
 \subsection{Implentation R codes}
-
+\clearpage
 \printbibliography
 
 \end{document}
