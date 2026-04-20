@@ -25,12 +25,9 @@ transformed parameters {
 }
 
 model {
-  // Priors
   mu ~ normal(0, 1.5);
   sigma ~ exponential(1);
   z ~ normal(0, 1);
-
-  // Likelihood
   y ~ ordered_logistic(x, c);
 }
 
@@ -48,5 +45,5 @@ generated quantities {
 
   x_new = normal_rng(mu, sigma);
   y_new = ordered_logistic_rng(x_new, c);
-  
 }
+
