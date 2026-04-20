@@ -142,18 +142,17 @@ To assess temporal dependence in \texttt{happy}, we examined the autocorrelation
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.7\textwidth]{happy_acf_ccf_combined.pdf}
-    \caption{Autocorrelation of \texttt{happy} and cross-correlations of \texttt{happy} with \texttt{pleased} and \texttt{enthusiastic}.}
+    \includegraphics[width=1 \textwidth]{happy_acf_ccf_comb.pdf}
+    \caption{Autocorrelation of \texttt{happy} and cross-correlations of \texttt{happy} with \texttt{pleased} ,\texttt{enthusiastic} and \texttt{relaxed}.}
     \label{fig:happy_acf_ccf_combined}
 \end{figure}
 
-
-We also examined the cross-correlation function (CCF) between \texttt{happy} and the related positive emotions \texttt{pleased} and \texttt{enthusiastic}. Both pairs show their strongest positive association near lag 0, with a stronger relationship for \texttt{happy}--\texttt{pleased}. Together, these results support time-dependent latent-state models for \texttt{happy}.
+We also examined the cross-correlation function (CCF) between \texttt{happy} and the related positive emotions: \texttt{pleased}, \texttt{relaxed}, and \texttt{enthusiastic}. All pairs show there is a strongest positive association near lag 1, suggesting all three of them are reasonable indicators for \texttt{happy}. 
 
 
 \section{Methodology}
 \subsection{Models}
-\subsubsection{Naive Model (Code~\ref{lst:naive_stan})}
+\subsubsection{Naive Model (See Stan code~\ref{lst:naive_stan})}
 
 As a baseline, we use an independent latent-variable model with an ordered logistic likelihood. For each observation \(i=1,\dots,N\), let \(y_i \in \{1,2,3,4,5,6,7\}\) denote the observed ordinal happiness rating and let \(x_i \in \mathbb{R}\) denote a latent continuous happiness level. We assume
 \[
@@ -182,7 +181,7 @@ y_i =
 \]
 This naive model ignores temporal dependence, subject-specific dynamics, and cross-emotion effects, and instead treats all observations as exchangeable draws from a common latent distribution.
 
-\subsubsection{Intermediate Model (with Time Structure)  (Code~\ref{lst:intermediate_stan})}
+\subsubsection{Intermediate Model (with Time Structure)  (See Stan code~\ref{lst:intermediate_stan})}
 
 % We next extend the naive model by allowing the latent happiness process to evolve over time. Let \(x_i\) again denote the latent continuous happiness state at observation \(i\). For observations with available lagged values, we assume
 % \[
@@ -266,7 +265,7 @@ The observation model remains the same as in the naive model. Unlike the naive m
 % The observation model remains the same as in the previous models.
 % This model allows future happiness ratings to be explained jointly by persistence in the latent happiness process and by lagged values of related positive-emotion variables.
 
-\subsubsection{Extended Model (with Time Structure and Additional Predictors) (Code~\ref{lst:advanced_stan})}
+\subsubsection{Extended Model (with Time Structure and Additional Predictors) (See Stan code~\ref{lst:advanced_stan})}
 
 Finally, we consider an extension of the intermediate model that incorporates additional lagged emotion predictors. Based on the exploratory screening analysis, the selected predictors were \texttt{enthusiastic}, \texttt{pleased}, and \texttt{relaxed}. Let \(e_{i-1}\), \(p_{i-1}\), and \(r_{i-1}\) denote their lagged values at the previous prompt. We then model the latent happiness state as
 \[
@@ -727,7 +726,6 @@ $\sigma$ & 0.380 & 0.0236 & 0.000876 & 726 & 1199 & 1.00 \\
 \subsection{Implementation R codes}
 \subsection{Naive Model}
 \label{app:stan_naive}
-
 \lstinputlisting[
   caption={Stan code for the naive model.},
   label={lst:naive_stan}

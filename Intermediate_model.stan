@@ -1,9 +1,9 @@
 data {
-  int<lower=1> N;                               // total number of time points
-  int<lower=0> N_obs;                           // number of observed happiness ratings
+  int<lower=1> N;                              
+  int<lower=0> N_obs;                           
 
-  array[N_obs] int<lower=1, upper=7> y_obs;     // observed happiness ratings only
-  array[N_obs] int<lower=1, upper=N> obs_index; // positions of observed y in full series
+  array[N_obs] int<lower=1, upper=7> y_obs;     
+  array[N_obs] int<lower=1, upper=N> obs_index; 
 
   array[N] int<lower=0, upper=1> has_lag1;
   array[N] int<lower=0, upper=N> lag1_index;
@@ -58,11 +58,11 @@ transformed parameters {
 }
 
 model {
-  // Priors
+
   alpha_raw ~ normal(0, 1.0);
   beta1_raw ~ normal(0, 1.0);
   beta5_raw ~ normal(0, 1.0);
-  sigma ~ exponential(2);   // tighter than exponential(1)
+  sigma ~ exponential(2);   
   z ~ normal(0, 1);
 
   for (n in 1:N_obs) {

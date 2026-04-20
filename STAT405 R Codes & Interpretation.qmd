@@ -1,7 +1,0 @@
----
-title: "STAT405 R Codes & Interpretation"
-format: pdf
-editor: visual
----
-
-# Exploratory Analysis
