@@ -1,18 +1,18 @@
 data {
-  int<lower=1> N;                               // total number of time points
-  int<lower=0> N_obs;                           // number of observed happiness ratings
+  int<lower=1> N;                          
+  int<lower=0> N_obs;                     
 
-  array[N_obs] int<lower=1, upper=7> y_obs;     // observed happiness ratings only
-  array[N_obs] int<lower=1, upper=N> obs_index; // positions of observed y in full series
+  array[N_obs] int<lower=1, upper=7> y_obs;  
+  array[N_obs] int<lower=1, upper=N> obs_index; 
 
-  // latent lag structure
+
   array[N] int<lower=0, upper=1> has_lag1;
   array[N] int<lower=0, upper=N> lag1_index;
 
   array[N] int<lower=0, upper=1> has_lag5;
   array[N] int<lower=0, upper=N> lag5_index;
 
-  // lagged exogenous predictors (already standardized in R)
+
   vector[N] enth_lag1;
   vector[N] pleased_lag1;
   vector[N] relaxed_lag1;
@@ -55,7 +55,7 @@ transformed parameters {
 
   alpha = alpha_raw;
 
-  // keep AR effects bounded for stability
+
   beta1 = 0.45 * tanh(beta1_raw);
   beta5 = 0.45 * tanh(beta5_raw);
 
@@ -112,7 +112,6 @@ generated quantities {
     y_rep_obs[n] = ordered_logistic_rng(x[obs_index[n]], c);
   }
 
-  // generic predictive draw using centered covariates = 0
   x_new = normal_rng(alpha, sigma);
   y_new = ordered_logistic_rng(x_new, c);
 }

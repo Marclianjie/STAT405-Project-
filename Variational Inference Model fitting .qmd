@@ -76,15 +76,12 @@ stan_data <- list(
 ### 1.2.1 HMC with Stan
 
 ```{r}
-# -----------------------------
-# 4) Compile Stan model
+
 dir.create("stan_out", showWarnings = FALSE)
 # -----------------------------
 mod <- cmdstan_model("naive_model.stan")
 
-# -----------------------------
-# 5) Fit with HMC / NUTS
-# -----------------------------
+
 fit_hmc <- mod$sample(
   data = stan_data,
   chains = 2,
@@ -191,9 +188,9 @@ from the results the prediction accuracy differ by a lot.
 ## 1.3 VI Model Diagnostic
 
 ```{r}
-# -----------------------------
-# 1) Hold out the last observation
-# -----------------------------
+
+# 1)Hold out the last observation
+
 y_full <- stan_data$y
 y_test <- y_full[length(y_full)]
 y_train <- y_full[-length(y_full)]
@@ -203,14 +200,14 @@ stan_data_loo_last <- list(
   y = y_train
 )
 
-# -----------------------------
+
 # 2) Compile model
 # -----------------------------
 mod <- cmdstan_model("naive_model.stan")
 
-# -----------------------------
-# 3) Fit with VI on n-1 data
-# -----------------------------
+
+# 3) Fit
+
 fit_vi <- mod$variational(
   output_samples = 2000,
   refresh = 500,
@@ -219,14 +216,13 @@ fit_vi <- mod$variational(
   data = stan_data_loo_last
 )
 
-# -----------------------------
-# 4) Extract posterior predictive draws for y_new
-# -----------------------------
+# 4)Extract posterior predictive draws for y_new
+
 y_new_draws <- as.numeric(fit_vi$draws("y_new"))
 
-# -----------------------------
+
 # 5) Compute a 99% predictive credible interval
-# -----------------------------
+
 ci <- quantile(y_new_draws, probs = c(0.005, 0.995))
 
 lower <- max(1, ceiling(ci[1]))
@@ -234,9 +230,9 @@ upper <- min(7, floor(ci[2]))
 
 c(lower = lower, upper = upper)
 
-# -----------------------------
+
 # 6) Check whether held-out y_n is inside the interval
-# -----------------------------
+
 y_test
 inside_interval <- (y_test >= lower) && (y_test <= upper)
 inside_interval
@@ -248,9 +244,9 @@ There is no warning spotted.
 
 ```{r}
 
-# -----------------------------
+
 # 1) Hold out the last observation
-# -----------------------------
+
 y_full <- stan_data$y
 y_test <- y_full[length(y_full)]
 y_train <- y_full[-length(y_full)]
@@ -260,14 +256,14 @@ stan_data_loo_last <- list(
   y = y_train
 )
 
-# -----------------------------
+
 # 2) Compile model
-# -----------------------------
+
 mod <- cmdstan_model("naive_model.stan")
 
-# -----------------------------
+
 # 3) Fit with HMC on n-1 dat
-# -----------------------------
+
 fit_hmc_loo <- mod$sample(
   data = stan_data_loo_last,
   iter_warmup = 1000,
@@ -278,14 +274,14 @@ fit_hmc_loo <- mod$sample(
   output_dir = "stan_out"
 )
 
-# -----------------------------
+
 # 4) Extract posterior predictive draws for y_new
-# -----------------------------
+
 y_new_draws <- fit_hmc_loo$draws("y_new", format = "matrix")[, 1]
 
-# -----------------------------
+
 # 5) Compute a 95% predictive credible interval
-# -----------------------------
+
 ci <- quantile(y_new_draws, probs = c(0.025, 0.975))
 
 lower <- max(1, ceiling(ci[1]))
@@ -293,9 +289,9 @@ upper <- min(7, floor(ci[2]))
 
 c(lower = lower, upper = upper)
 
-# -----------------------------
+
 # 6) Check whether held-out y_n is inside the interval
-# -----------------------------
+
 y_test
 inside_interval <- (y_test >= lower) && (y_test <= upper)
 inside_interval
@@ -305,7 +301,7 @@ inside_interval
 
 ```{r}
 
-# fixed cutpoints from the naive model
+
 cuts_fixed <- c(-2.5, -1.5, -0.5, 0.5, 1.5, 2.5)
 
 # ---------- ordered logistic helpers ----------
@@ -457,7 +453,7 @@ exact_invariance_test_naive <- function(
   do.call(rbind, out)
 }
 
-# run the test
+# testtttttttttttttttttttttttttttttttttttttt
 eit_results <- exact_invariance_test_naive(
   n_rep = 200, #300
   n_iter = 30, #50
@@ -552,9 +548,9 @@ dat <- read_tsv("Data/Backup/backup.tsv", show_col_types = FALSE) %>%
     row_index = row_number()
   )
 
-# -----------------------------
+
 # 1) Build Stan data for the intermediate model
-# -----------------------------
+
 N <- nrow(dat)
 
 is_obs <- !is.na(dat$happy)
@@ -594,15 +590,15 @@ stan_data_intermediate <- list(
 ```
 
 ```{r}
-# -----------------------------
-# 4) Compile Stan model
+
+# 4) Compile
 dir.create("stan_out", showWarnings = FALSE)
 # -----------------------------
 mod <- cmdstan_model("intermediate_model.stan")
 
-# -----------------------------
+
 # 5) Fit with HMC / NUTS
-# -----------------------------
+
 fit_hmc <- mod$sample(
   data = stan_data_intermediate,
   seed = 405,
@@ -619,9 +615,9 @@ fit_hmc <- mod$sample(
 
 ```{r}
 
-# -----------------------------
+
 # 1) Hold out the last observation
-# -----------------------------
+
 y_full <- stan_data_intermediate$y
 y_test <- y_full[length(y_full)]
 y_train <- y_full[-length(y_full)]
@@ -631,14 +627,14 @@ stan_data_loo_last <- list(
   y = y_train
 )
 
-# -----------------------------
+
 # 2) Compile model
-# -----------------------------
+
 mod <- cmdstan_model("intermediate_model.stan")
 
-# -----------------------------
+
 # 3) Fit with HMC on n-1 dat
-# -----------------------------
+
 fit_hmc_loo <- mod$sample(
   data = stan_data_loo_last,
   iter_warmup = 1000,
@@ -649,14 +645,14 @@ fit_hmc_loo <- mod$sample(
   output_dir = "stan_out"
 )
 
-# -----------------------------
+
 # 4) Extract posterior predictive draws for y_new
-# -----------------------------
+
 y_new_draws <- fit_hmc_loo$draws("y_new", format = "matrix")[, 1]
 
-# -----------------------------
+
 # 5) Compute a 95% predictive credible interval
-# -----------------------------
+
 ci <- quantile(y_new_draws, probs = c(0.025, 0.975))
 
 lower <- max(1, ceiling(ci[1]))
@@ -664,9 +660,9 @@ upper <- min(7, floor(ci[2]))
 
 c(lower = lower, upper = upper)
 
-# -----------------------------
+
 # 6) Check whether held-out y_n is inside the interval
-# -----------------------------
+
 y_test
 inside_interval <- (y_test >= lower) && (y_test <= upper)
 inside_interval
@@ -699,13 +695,12 @@ dev.off()
 
 \
 
-## 1.3 Exact Invariance Test 
+## 1.3 Exact Invariance Test
 
 ```{r}
-# helpers
 
 
-# fixed cutpoints
+
 cuts_fixed <- c(-2.5, -1.5, -0.5, 0.5, 1.5, 2.5)
 
 # ordered-logistic helpers
@@ -890,9 +885,9 @@ rbind(
 ## 1.4 ESS
 
 ```{r}
-# -----------------------------
+
 # 1.6 ESS for intermediate model
-# -----------------------------
+
 ess_table_intermediate <- fit_hmc$summary(
   NULL,
   c("mean", "sd", "mcse_mean", "ess_bulk", "ess_tail", "rhat")
@@ -906,7 +901,7 @@ ess_table_intermediate[
 
 ## 3 Advanced Model
 
-##  3.2 Model Implementation 
+## 3.2 Model Implementation
 
 ```{r}
 
@@ -918,9 +913,9 @@ dat <- read_tsv("Data/Backup/backup.tsv", show_col_types = FALSE) %>%
     row_index = row_number()
   )
 
-# -----------------------------
+
 # 1) Standardize exogenous predictors using observed values only
-# -----------------------------
+
 scale_to_numeric <- function(x) {
   m <- mean(x, na.rm = TRUE)
   s <- sd(x, na.rm = TRUE)
@@ -934,9 +929,9 @@ dat <- dat %>%
     relaxed_std      = scale_to_numeric(relaxed)
   )
 
-# -----------------------------
+
 # 2) Basic observed-y objects
-# -----------------------------
+
 N <- nrow(dat)
 
 is_obs <- !is.na(dat$happy)
@@ -944,9 +939,9 @@ obs_index <- which(is_obs)
 y_obs <- dat$happy[is_obs]
 N_obs <- length(y_obs)
 
-# -----------------------------
+
 # 3) Build latent lag structure
-# -----------------------------
+
 has_lag1 <- rep(0L, N)
 lag1_index <- rep(0L, N)
 
@@ -967,10 +962,10 @@ for (i in seq_len(N)) {
   }
 }
 
-# -----------------------------
+
 # 4) Build lagged exogenous predictors
 #    Use previous-row values only if same participant and observed
-# -----------------------------
+
 enth_lag1 <- rep(0, N)
 pleased_lag1 <- rep(0, N)
 relaxed_lag1 <- rep(0, N)
@@ -996,9 +991,9 @@ for (i in seq_len(N)) {
   }
 }
 
-# -----------------------------
+
 # 5) Final Stan data list
-# -----------------------------
+
 stan_data_model3 <- list(
   N = N,
   N_obs = N_obs,
@@ -1016,9 +1011,7 @@ stan_data_model3 <- list(
   has_relaxed_lag1 = has_relaxed_lag1
 )
 
-# -----------------------------
-# 6) Sanity checks
-# -----------------------------
+
 stopifnot(length(y_obs) == N_obs)
 stopifnot(length(obs_index) == N_obs)
 stopifnot(length(has_lag1) == N)
@@ -1107,10 +1100,8 @@ Exact Invar Test
 ```{r}
 set.seed(405)
 
-# --------------------------------
 # build a small debug version with N = 30
-# consistent with the intermediate-model invariance test
-# --------------------------------
+
 N_small <- 20
 
 stan_data_ext_small <- stan_data_model3
@@ -1137,14 +1128,14 @@ stan_data_ext_small$pleased_lag1 <- stan_data_model3$pleased_lag1[1:N_small]
 stan_data_ext_small$has_relaxed_lag1 <- stan_data_model3$has_relaxed_lag1[1:N_small]
 stan_data_ext_small$relaxed_lag1 <- stan_data_model3$relaxed_lag1[1:N_small]
 
-# --------------------------------
+
 # fixed cutpoints
-# --------------------------------
+
 cuts_fixed <- c(-2.5, -1.5, -0.5, 0.5, 1.5, 2.5)
 
-# --------------------------------
+
 # ordered logistic helpers
-# --------------------------------
+
 ordered_logistic_probs <- function(eta, cuts = cuts_fixed) {
   p <- numeric(length(cuts) + 1)
   p[1] <- plogis(cuts[1] - eta)
@@ -1164,10 +1155,10 @@ log_ordered_logistic_vec <- function(y, eta, cuts = cuts_fixed) {
   sum(log(pmax(probs, 1e-12)))
 }
 
-# --------------------------------
+
 # reconstruct transformed params and latent path
 # matching advanced_model.stan
-# --------------------------------
+
 make_x_extended <- function(state, dat) {
   alpha <- state$alpha_raw
   beta1 <- 0.45 * tanh(state$beta1_raw)
@@ -1216,9 +1207,9 @@ make_x_extended <- function(state, dat) {
   )
 }
 
-# --------------------------------
+
 # forward simulator
-# --------------------------------
+
 forward_extended <- function(dat, cuts = cuts_fixed) {
   repeat {
     state <- list(
@@ -1242,9 +1233,8 @@ forward_extended <- function(dat, cuts = cuts_fixed) {
   }
 }
 
-# --------------------------------
-# joint density
-# --------------------------------
+# # joint density
+
 joint_extended <- function(state, y_obs, dat, cuts = cuts_fixed) {
   comp <- make_x_extended(state, dat)
   if (is.null(comp)) return(-Inf)
@@ -1261,9 +1251,9 @@ joint_extended <- function(state, y_obs, dat, cuts = cuts_fixed) {
     log_ordered_logistic_vec(y_obs, comp$x[dat$obs_index], cuts)
 }
 
-# --------------------------------
+
 # summary extractor
-# --------------------------------
+
 extract_summary_extended <- function(
     state, dat,
     summary = c("alpha", "beta1", "beta5",
@@ -1287,9 +1277,9 @@ extract_summary_extended <- function(
   )
 }
 
-# --------------------------------
+
 # one MH update helper
-# --------------------------------
+
 mh_update <- function(state, y_obs, logp_current, proposal_fun, dat) {
   proposal <- proposal_fun(state)
   logp_prop <- joint_extended(proposal, y_obs, dat)
@@ -1301,9 +1291,8 @@ mh_update <- function(state, y_obs, logp_current, proposal_fun, dat) {
   }
 }
 
-# --------------------------------
 # forward-simulation-initialized MCMC
-# --------------------------------
+
 stationary_mcmc_extended <- function(n_iterations, dat = stan_data_ext_small, summary = "alpha") {
   initialization <- forward_extended(dat)
   y_obs <- initialization$y_obs
@@ -1383,10 +1372,10 @@ stationary_mcmc_extended <- function(n_iterations, dat = stan_data_ext_small, su
   extract_summary_extended(current, dat, summary)
 }
 
-# --------------------------------
+
 # exact invariance test
 # same logic as before
-# --------------------------------
+
 exact_invariance_extended <- function(summary = "alpha",
                                       n_rep = 200,
                                       n_iter = 30,
@@ -1410,10 +1399,10 @@ exact_invariance_extended <- function(summary = "alpha",
   )
 }
 
-# --------------------------------
+
 # run the test
 # consistent with earlier scale: N = 30
-# --------------------------------
+
 rbind(
   exact_invariance_extended("alpha", n_rep = 200, n_iter = 30),
   exact_invariance_extended("beta1", n_rep = 200, n_iter = 30),
@@ -1430,9 +1419,9 @@ rbind(
 ESS
 
 ```{r}
-# -----------------------------
+
 # ESS for extended model
-# -----------------------------
+
 ess_table_extended <- fit_hmc_model3$summary(
   NULL,
   c("mean", "sd", "mcse_mean", "ess_bulk", "ess_tail", "rhat")
