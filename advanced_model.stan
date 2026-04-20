@@ -110,7 +110,6 @@ generated quantities {
     y_rep_obs[n] = ordered_logistic_rng(x[obs_index[n]], c);
   }
 
-  // generic predictive draw using centered covariates = 0
   x_new = normal_rng(alpha, sigma);
   y_new = ordered_logistic_rng(x_new, c);
 }
