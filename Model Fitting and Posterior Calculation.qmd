@@ -1,5 +1,5 @@
 ---
-title: "Variational Inference Model fitting"
+title: "Model Fitting and Posterior Comparison"
 author: "Marc Shi"
 format: pdf
 editor: visual
