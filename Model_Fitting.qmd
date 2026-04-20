@@ -1,0 +1,1438 @@
+---
+title: "Variational Inference Model fitting"
+author: "Marc Shi"
+format: pdf
+editor: visual
+---
+
+```{r}
+library(cmdstanr)
+library(readr)
+library(dplyr)
+set.seed(405)
+
+```
+
+# Data Importing & Cleaning
+
+```{r}
+
+dat <- read_tsv("Data/Backup/backup.tsv", show_col_types = FALSE)
+```
+
+from the dataset, we see that there are 7350 observations, which comes from 105 participants × 14 days $\times 5$ beeps per day $=7350$. Therefore for each participants, we have $14 \times 5=70$ timepoints per participant.
+
+# Model Fitting
+
+## 1. Naive Model (Baseline)
+
+For the naive model, we use the **independent latent variable model with ordered logistic likelihood.**
+
+## 1.1 Model set up
+
+For each observation $i$ :
+
+-   $y_i \in\{1,2,3,4,5,6,7\}$ : observed happiness rating (ordinal)
+
+-   $x_i \in \mathbb{R}$ : latent continuous happiness
+
+**Prior:** we assume $x_i \sim \operatorname{iid} \mathcal{N}\left(\mu, \sigma^2\right)$, where each latent happiness level is independent across time (within-participant) and between participants and is drawn from a same distribution with parameter. Since there is only one pbserved score $y_i$ connected to $x_i$ we rom the prior, we will be hierarchical and apply the hyper parameters as below:
+
+$\mu \sim \mathcal{N}\left(0,1.5^2\right)$ and $\sigma \sim$ Exponential $(1)$
+
+**Likelihood (Ordered Logistic Model)**
+
+$$
+y_i \mid x_i \sim \operatorname{Ordered} \operatorname{Logistic}\left(x_i, c\right)
+$$
+
+where: . $c=\left(c_1, c_2, c_3, c_4, c_5, c_6\right)$ are cutpoints with
+
+$c = (-2.5,-1.5,-0.5,0.5,1.5,2.5)$, thus make $0$ being the center of the score, corresponding to using $0$ as the mean for the prior for $\mu$.
+
+The ordered logistic model can be written as:
+
+$\begin{aligned} & y_i= \begin{cases}1 & x_i+\epsilon_i \leq c_1 \\ 2 & c_1<x_i+\epsilon_i \leq c_2 \\ \ldots & \\ 7 & x_i+\epsilon_i>c_6\end{cases} \\ & \epsilon_i \sim \operatorname{Logistic}(0,1)\end{aligned}$
+
+## 1.2 Model Implementation
+
+```{r}
+# keep ONLY rows where happiness is observed
+dat_clean <- dat %>%
+  filter(!is.na(happy)) %>%
+  mutate(happy = as.integer(happy))
+
+table(dat_clean$happy)
+sum(is.na(dat_clean$happy))
+
+y <- dat_clean$happy
+
+stan_data <- list(
+  N = length(y),
+  y = y
+)
+```
+
+### 1.2.1 HMC with Stan
+
+```{r}
+
+dir.create("stan_out", showWarnings = FALSE)
+# -----------------------------
+mod <- cmdstan_model("naive_model.stan")
+
+
+fit_hmc <- mod$sample(
+  data = stan_data,
+  chains = 2,
+  iter_warmup = 1000,
+  iter_sampling = 2000,
+  refresh = 500,
+  output_dir = "stan_out"
+)
+
+# -----------------------------
+# 6) Summaries
+# -----------------------------
+fit_hmc$summary(c("mu", "sigma"))
+```
+
+```{r}
+fit_hmc$summary(c("mu", "sigma","y_new"))
+fit_hmc$diagnostic_summary()
+```
+
+```{r}
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(bayesplot)
+  library(gridExtra)
+  library(grid)
+})
+
+p1<-mcmc_trace(fit_hmc$draws("mu")) + theme_minimal()
+
+```
+
+```{r}
+p2<-mcmc_rank_hist(fit_hmc$draws("mu")) 
+desktop <- file.path(Sys.getenv("USERPROFILE"), "Desktop")   # Windows
+
+pdf(file.path(desktop, "mu_diagnostics.pdf"), width = 12, height = 5)
+grid.arrange(p1, p2, ncol = 2)
+dev.off()
+
+```
+
+### 1.2.2 VI with Stan
+
+```{r}
+# -----------------------------
+mod <- cmdstan_model("naive_model.stan")
+
+# -----------------------------
+# 5) Fit with VI
+# -----------------------------
+fit_vi = mod$variational(
+  output_samples = 2000,
+  refresh = 500,
+  output_dir = "stan_out",
+  algorithm = "meanfield",
+  data = stan_data
+)
+```
+
+```{r}
+fit_vi$summary(c("mu", "sigma","y_new"))
+```
+
+### 1.2.3 Comparison between VI and HMC
+
+we quantify the discrepancy between HMC and VI using standardized difference in posterior means and ratio of posterior standard deviation.
+
+```{r}
+hmc <- fit_hmc$summary(c("mu","sigma"))
+vi  <- fit_vi$summary(c("mu","sigma"))
+diff_mu <- abs(hmc$mean[1] - vi$mean[1]) / hmc$sd[1]
+ratio_mu <- vi$sd[1] / hmc$sd[1]
+
+diff_sigma <- abs(hmc$mean[2] - vi$mean[2]) / hmc$sd[2]
+ratio_sigma <- vi$sd[2] / hmc$sd[2]
+diff_mu
+ratio_mu
+diff_sigma
+ratio_sigma
+```
+
+```{r}
+library(loo)
+
+# HMC
+log_lik_hmc <- fit_hmc$draws("log_lik", format = "matrix")
+loo_hmc <- loo(log_lik_hmc)
+
+# VI
+log_lik_vi <- fit_vi$draws("log_lik", format = "matrix")
+loo_vi <- loo(log_lik_vi)
+
+loo_hmc
+loo_vi
+```
+
+```{r}
+loo_compare(loo_hmc, loo_vi)
+```
+
+from the results the prediction accuracy differ by a lot.
+
+## 1.3 VI Model Diagnostic
+
+```{r}
+
+# 1)Hold out the last observation
+
+y_full <- stan_data$y
+y_test <- y_full[length(y_full)]
+y_train <- y_full[-length(y_full)]
+
+stan_data_loo_last <- list(
+  N = length(y_train),
+  y = y_train
+)
+
+
+# 2) Compile model
+# -----------------------------
+mod <- cmdstan_model("naive_model.stan")
+
+
+# 3) Fit
+
+fit_vi <- mod$variational(
+  output_samples = 2000,
+  refresh = 500,
+  output_dir = "stan_out",
+  algorithm = "meanfield",
+  data = stan_data_loo_last
+)
+
+# 4)Extract posterior predictive draws for y_new
+
+y_new_draws <- as.numeric(fit_vi$draws("y_new"))
+
+
+# 5) Compute a 99% predictive credible interval
+
+ci <- quantile(y_new_draws, probs = c(0.005, 0.995))
+
+lower <- max(1, ceiling(ci[1]))
+upper <- min(7, floor(ci[2]))
+
+c(lower = lower, upper = upper)
+
+
+# 6) Check whether held-out y_n is inside the interval
+
+y_test
+inside_interval <- (y_test >= lower) && (y_test <= upper)
+inside_interval
+```
+
+There is no warning spotted.
+
+## 1.4 HMC Model Diagnostic
+
+```{r}
+
+
+# 1) Hold out the last observation
+
+y_full <- stan_data$y
+y_test <- y_full[length(y_full)]
+y_train <- y_full[-length(y_full)]
+
+stan_data_loo_last <- list(
+  N = length(y_train),
+  y = y_train
+)
+
+
+# 2) Compile model
+
+mod <- cmdstan_model("naive_model.stan")
+
+
+# 3) Fit with HMC on n-1 dat
+
+fit_hmc_loo <- mod$sample(
+  data = stan_data_loo_last,
+  iter_warmup = 1000,
+  iter_sampling = 2000,
+  chains = 1,
+  refresh = 500,
+  seed = 405,
+  output_dir = "stan_out"
+)
+
+
+# 4) Extract posterior predictive draws for y_new
+
+y_new_draws <- fit_hmc_loo$draws("y_new", format = "matrix")[, 1]
+
+
+# 5) Compute a 95% predictive credible interval
+
+ci <- quantile(y_new_draws, probs = c(0.025, 0.975))
+
+lower <- max(1, ceiling(ci[1]))
+upper <- min(7, floor(ci[2]))
+
+c(lower = lower, upper = upper)
+
+
+# 6) Check whether held-out y_n is inside the interval
+
+y_test
+inside_interval <- (y_test >= lower) && (y_test <= upper)
+inside_interval
+```
+
+## 1.5 Exact invariance Test
+
+```{r}
+
+
+cuts_fixed <- c(-2.5, -1.5, -0.5, 0.5, 1.5, 2.5)
+
+# ---------- ordered logistic helpers ----------
+ordered_logistic_probs <- function(eta, cuts = cuts_fixed) {
+  K <- length(cuts) + 1
+  p <- numeric(K)
+
+  p[1] <- plogis(cuts[1] - eta)
+  if (K > 2) {
+    for (k in 2:(K - 1)) {
+      p[k] <- plogis(cuts[k] - eta) - plogis(cuts[k - 1] - eta)
+    }
+  }
+  p[K] <- 1 - plogis(cuts[K - 1] - eta)
+
+  pmax(p, 1e-12)
+}
+
+rordered_logistic1 <- function(eta, cuts = cuts_fixed) {
+  sample.int(length(cuts) + 1, size = 1, prob = ordered_logistic_probs(eta, cuts))
+}
+
+log_ordered_logistic_vec <- function(y, eta, cuts = cuts_fixed) {
+  probs <- vapply(
+    seq_along(y),
+    function(i) ordered_logistic_probs(eta[i], cuts)[y[i]],
+    numeric(1)
+  )
+  sum(log(pmax(probs, 1e-12)))
+}
+
+# ---------- forward simulator from the JOINT model ----------
+forward_naive <- function(N = 30, cuts = cuts_fixed) {
+  mu <- rnorm(1, mean = 0, sd = 1.5)
+  sigma <- rexp(1, rate = 1)
+  z <- rnorm(N)
+  x <- mu + sigma * z
+  y <- vapply(x, rordered_logistic1, integer(1), cuts = cuts)
+
+  list(
+    mu = mu,
+    ell = log(sigma),
+    z = z,
+    y = y
+  )
+}
+
+# ---------- log joint density in (mu, ell, z, y) parameterization ----------
+log_joint_naive <- function(mu, ell, z, y, cuts = cuts_fixed) {
+  sigma <- exp(ell)
+  x <- mu + sigma * z
+
+  dnorm(mu, mean = 0, sd = 1.5, log = TRUE) +
+    dexp(sigma, rate = 1, log = TRUE) +
+    ell +
+    sum(dnorm(z, mean = 0, sd = 1, log = TRUE)) +
+    log_ordered_logistic_vec(y, x, cuts)
+}
+
+# ---------- one fixed Metropolis-within-Gibbs kernel ----------
+stationary_mcmc_naive <- function(
+    n_iter,
+    N = 30,
+    cuts = cuts_fixed,
+    prop_sd_mu = 0.30,
+    prop_sd_ell = 0.20,
+    prop_sd_z = 0.40
+) {
+  state <- forward_naive(N = N, cuts = cuts)
+  y <- state$y
+
+  if (n_iter == 0) return(state)
+
+  current_lp <- log_joint_naive(state$mu, state$ell, state$z, y, cuts)
+
+  for (iter in seq_len(n_iter)) {
+
+    mu_prop <- rnorm(1, mean = state$mu, sd = prop_sd_mu)
+    lp_prop <- log_joint_naive(mu_prop, state$ell, state$z, y, cuts)
+    if (log(runif(1)) < (lp_prop - current_lp)) {
+      state$mu <- mu_prop
+      current_lp <- lp_prop
+    }
+
+    ell_prop <- rnorm(1, mean = state$ell, sd = prop_sd_ell)
+    lp_prop <- log_joint_naive(state$mu, ell_prop, state$z, y, cuts)
+    if (log(runif(1)) < (lp_prop - current_lp)) {
+      state$ell <- ell_prop
+      current_lp <- lp_prop
+    }
+
+    for (n in seq_along(state$z)) {
+      z_prop <- state$z
+      z_prop[n] <- rnorm(1, mean = state$z[n], sd = prop_sd_z)
+
+      lp_prop <- log_joint_naive(state$mu, state$ell, z_prop, y, cuts)
+      if (log(runif(1)) < (lp_prop - current_lp)) {
+        state$z <- z_prop
+        current_lp <- lp_prop
+      }
+    }
+  }
+
+  state
+}
+
+# ---------- choose scalar summaries to compare ----------
+extract_summary <- function(state, summary = c("mu", "sigma", "xbar", "x1")) {
+  summary <- match.arg(summary)
+
+  sigma <- exp(state$ell)
+  x <- state$mu + sigma * state$z
+
+  switch(
+    summary,
+    mu = state$mu,
+    sigma = sigma,
+  )
+}
+
+# ---------- exact invariance test ----------
+exact_invariance_test_naive <- function(
+    n_rep = 300,
+    n_iter = 50,
+    N = 30,
+    summaries = c("mu", "sigma", "xbar", "x1")
+) {
+  out <- lapply(summaries, function(s) {
+    forward_only <- replicate(
+      n_rep,
+      extract_summary(stationary_mcmc_naive(n_iter = 0, N = N), s)
+    )
+
+    with_mcmc <- replicate(
+      n_rep,
+      extract_summary(stationary_mcmc_naive(n_iter = n_iter, N = N), s)
+    )
+
+    ks <- ks.test(forward_only, with_mcmc)
+
+    data.frame(
+      summary = s,
+      D_statistic = unname(ks$statistic),
+      p_value = ks$p.value,
+      row.names = NULL
+    )
+  })
+
+  do.call(rbind, out)
+}
+
+# testtttttttttttttttttttttttttttttttttttttt
+eit_results <- exact_invariance_test_naive(
+  n_rep = 200, #300
+  n_iter = 30, #50
+  N = 20, #30
+  summaries = c("mu", "sigma")
+)
+
+eit_results
+
+
+```
+
+## 1.6 ESS
+
+```{r}
+
+ess_table <- fit_hmc$summary(
+  NULL,
+  c("mean", "sd", "mcse_mean", "ess_bulk", "ess_tail", "rhat")
+)
+
+ess_table[ess_table$variable %in% c("mu", "sigma"),
+          c("variable", "mean", "sd", "mcse_mean", "ess_bulk", "ess_tail", "rhat")]
+```
+
+## 2. Intermediate Model (with time structure)
+
+## 2.1 Model setup
+
+For each observation $i$ :
+
+-   $y_i \in\{1,2,3,4,5,6,7\}$ : observed happiness rating (ordinal)
+
+-   $x_i \in \mathbb{R}$ : latent continuous happiness
+
+**Latent Dynamic:**
+
+Instead of assuming independence, we model $x_i$ conditionally on its past values:
+
+$$
+x_i \mid x_{i-1}, x_{i-5} \sim \mathcal{N}\left(\mu_i, \sigma^2\right)
+$$
+
+where the conditional mean is given by a regression structure:
+
+$$
+\mu_i=\alpha+\beta_1 x_{i-1}+\beta_5 x_{i-5}
+$$
+
+This introduces:
+
+-   short-term dependence via $x_{i-1}$
+
+-   longer-term dependence via $x_{i-5}$
+
+**Initial Condition\
+**
+
+For the first few observations where lags are not available (i.e., $i \leq 5$ ), we use:
+
+$$
+x_i \sim \mathcal{N}\left(\mu_0, \sigma^2\right)
+$$
+
+with $\mu_0=\alpha$, ensuring a consistent baseline.
+
+We place priors on the regression parameters to control the influence of temporal dependence:
+
+$$
+\begin{aligned}
+& \alpha \sim \mathcal{N}\left(0,1.5^2\right) \\
+& \beta_1 \sim \mathcal{N}(0,1), \quad \beta_5 \sim \mathcal{N}(0,1) \\
+& \sigma \sim \text { Exponential }(1)
+\end{aligned}
+$$
+
+Interpretation: - $\alpha$ : baseline latent happiness level - $\beta_{1 \text { : }}$ immediate persistence (short-term effect) - $\beta_5$ : delayed persistence (long-term effect) - $\sigma$ : variability not explained by temporal structure
+
+**Likelihood**
+
+Same as before
+
+## 2.2 Model Implementation
+
+Since simply removing missing observation would distort the temporal structure of the data by altering the spacing between time points. Therefore we retain all time indices and
+
+```{r}
+dat <- read_tsv("Data/Backup/backup.tsv", show_col_types = FALSE) %>%
+  arrange(id, day, beep) %>%
+  mutate(
+    happy = as.integer(happy),
+    row_index = row_number()
+  )
+
+
+# 1) Build Stan data for the intermediate model
+
+N <- nrow(dat)
+
+is_obs <- !is.na(dat$happy)
+obs_index <- which(is_obs)
+y_obs <- dat$happy[is_obs]
+N_obs <- length(y_obs)
+
+has_lag1 <- rep(0L, N)
+lag1_index <- rep(0L, N)
+
+has_lag5 <- rep(0L, N)
+lag5_index <- rep(0L, N)
+
+for (i in seq_len(N)) {
+  # lag 1: previous row must belong to same participant
+  if (i > 1 && dat$id[i] == dat$id[i - 1]) {
+    has_lag1[i] <- 1L
+    lag1_index[i] <- i - 1L
+  }
+
+  # lag 5: 5 rows before must belong to same participant
+  if (i > 5 && dat$id[i] == dat$id[i - 5]) {
+    has_lag5[i] <- 1L
+    lag5_index[i] <- i - 5L
+  }
+}
+
+stan_data_intermediate <- list(
+  N = N,
+  N_obs = N_obs,
+  y_obs = y_obs,
+  obs_index = obs_index,
+  has_lag1 = has_lag1,
+  lag1_index = lag1_index,
+  has_lag5 = has_lag5,
+  lag5_index = lag5_index)
+```
+
+```{r}
+
+# 4) Compile
+dir.create("stan_out", showWarnings = FALSE)
+# -----------------------------
+mod <- cmdstan_model("intermediate_model.stan")
+
+
+# 5) Fit with HMC / NUTS
+
+fit_hmc <- mod$sample(
+  data = stan_data_intermediate,
+  seed = 405,
+  iter_warmup = 500,
+  iter_sampling = 1000,
+  chains = 2,
+  refresh = 250,
+  output_dir = "stan_out",
+  max_treedepth = 15
+)
+```
+
+## 1.3 HMC Model Diagnostic
+
+```{r}
+
+
+# 1) Hold out the last observation
+
+y_full <- stan_data_intermediate$y
+y_test <- y_full[length(y_full)]
+y_train <- y_full[-length(y_full)]
+
+stan_data_loo_last <- list(
+  N = length(y_train),
+  y = y_train
+)
+
+
+# 2) Compile model
+
+mod <- cmdstan_model("intermediate_model.stan")
+
+
+# 3) Fit with HMC on n-1 dat
+
+fit_hmc_loo <- mod$sample(
+  data = stan_data_loo_last,
+  iter_warmup = 1000,
+  iter_sampling = 2000,
+  chains = 1,
+  refresh = 500,
+  seed = 405,
+  output_dir = "stan_out"
+)
+
+
+# 4) Extract posterior predictive draws for y_new
+
+y_new_draws <- fit_hmc_loo$draws("y_new", format = "matrix")[, 1]
+
+
+# 5) Compute a 95% predictive credible interval
+
+ci <- quantile(y_new_draws, probs = c(0.025, 0.975))
+
+lower <- max(1, ceiling(ci[1]))
+upper <- min(7, floor(ci[2]))
+
+c(lower = lower, upper = upper)
+
+
+# 6) Check whether held-out y_n is inside the interval
+
+y_test
+inside_interval <- (y_test >= lower) && (y_test <= upper)
+inside_interval
+
+```
+
+```{r}
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(bayesplot)
+  library(gridExtra)
+  library(grid)
+})
+
+p1<-mcmc_trace(fit_hmc$draws("sigma")) + theme_minimal()
+
+```
+
+```{r}
+p2<-mcmc_rank_hist(fit_hmc$draws("sigma")) 
+desktop <- file.path(Sys.getenv("USERPROFILE"), "Desktop")   # Windows
+
+pdf(file.path(desktop, "intermediate_sigma_diagnostics.pdf"), width = 12, height = 5)
+grid.arrange(p1, p2, ncol = 2)
+dev.off()
+
+```
+
+\
+
+\
+
+## 1.3 Exact Invariance Test
+
+```{r}
+
+
+
+cuts_fixed <- c(-2.5, -1.5, -0.5, 0.5, 1.5, 2.5)
+
+# ordered-logistic helpers
+ordered_logistic_probs <- function(eta, cuts = cuts_fixed) {
+  p <- numeric(length(cuts) + 1)
+  p[1] <- plogis(cuts[1] - eta)
+  for (k in 2:length(cuts)) {
+    p[k] <- plogis(cuts[k] - eta) - plogis(cuts[k - 1] - eta)
+  }
+  p[length(cuts) + 1] <- 1 - plogis(cuts[length(cuts)] - eta)
+  pmax(p, 1e-12)
+}
+
+rordered_logistic1 <- function(eta, cuts = cuts_fixed) {
+  sample.int(length(cuts) + 1, 1, prob = ordered_logistic_probs(eta, cuts))
+}
+
+log_ordered_logistic_vec <- function(y, eta, cuts = cuts_fixed) {
+  probs <- mapply(function(yy, ee) ordered_logistic_probs(ee, cuts)[yy], y, eta)
+  sum(log(pmax(probs, 1e-12)))
+}
+
+# recursive latent trajectory for the intermediate model
+make_x <- function(alpha, beta1, beta5, ell, z) {
+  sigma <- exp(ell)
+  N <- length(z)
+  x <- numeric(N)
+
+  for (i in seq_len(N)) {
+    mu_i <- alpha
+    if (i > 1) mu_i <- mu_i + beta1 * x[i - 1]
+    if (i > 5) mu_i <- mu_i + beta5 * x[i - 5]
+    x[i] <- mu_i + sigma * z[i]
+    if (!is.finite(x[i])) return(NULL)
+  }
+
+  x
+}
+
+# forward simulator
+forward_intermediate <- function(N = 20, cuts = cuts_fixed) {
+  repeat {
+    alpha <- rnorm(1, 0, 1.5)
+    beta1 <- rnorm(1, 0, 1)
+    beta5 <- rnorm(1, 0, 1)
+    sigma <- rexp(1, 1)
+    z <- rnorm(N)
+
+    x <- make_x(alpha, beta1, beta5, log(sigma), z)
+    if (!is.null(x)) {
+      y <- sapply(x, rordered_logistic1, cuts = cuts)
+      return(list(alpha = alpha, beta1 = beta1, beta5 = beta5,
+                  ell = log(sigma), z = z, y = y))
+    }
+  }
+}
+
+# joint density
+joint_intermediate <- function(state, y, cuts = cuts_fixed) {
+  x <- make_x(state$alpha, state$beta1, state$beta5, state$ell, state$z)
+  if (is.null(x)) return(-Inf)
+
+  sigma <- exp(state$ell)
+
+  dnorm(state$alpha, 0, 1.5, log = TRUE) +
+    dnorm(state$beta1, 0, 1, log = TRUE) +
+    dnorm(state$beta5, 0, 1, log = TRUE) +
+    dexp(sigma, 1, log = TRUE) +
+    state$ell +
+    sum(dnorm(state$z, 0, 1, log = TRUE)) +
+    log_ordered_logistic_vec(y, x, cuts)
+}
+
+# summary extractor
+extract_summary_intermediate <- function(state, summary = "alpha") {
+  x <- make_x(state$alpha, state$beta1, state$beta5, state$ell, state$z)
+  sigma <- exp(state$ell)
+
+  switch(
+    summary,
+    alpha = state$alpha,
+    beta1 = state$beta1,
+    beta5 = state$beta5,
+    sigma = sigma,
+    xbar = mean(x),
+    x6 = x[6]
+  )
+}
+
+# one MH update helper
+mh_update <- function(state, y, logp_current, proposal_fun) {
+  proposal <- proposal_fun(state)
+  logp_prop <- joint_intermediate(proposal, y)
+
+  if (log(runif(1)) < (logp_prop - logp_current)) {
+    list(state = proposal, logp = logp_prop)
+  } else {
+    list(state = state, logp = logp_current)
+  }
+}
+
+# forward-simulation-initialized MCMC
+stationary_mcmc_intermediate <- function(n_iterations, N = 20, summary = "alpha") {
+  initialization <- forward_intermediate(N)
+  y <- initialization$y
+
+  if (n_iterations == 0) {
+    return(extract_summary_intermediate(initialization, summary))
+  }
+
+  current <- initialization
+  logp_current <- joint_intermediate(current, y)
+
+  for (i in seq_len(n_iterations)) {
+
+    out <- mh_update(
+      current, y, logp_current,
+      function(s) { s$alpha <- s$alpha + rnorm(1, 0, 0.20); s }
+    )
+    current <- out$state; logp_current <- out$logp
+
+    out <- mh_update(
+      current, y, logp_current,
+      function(s) { s$beta1 <- s$beta1 + rnorm(1, 0, 0.12); s }
+    )
+    current <- out$state; logp_current <- out$logp
+
+    out <- mh_update(
+      current, y, logp_current,
+      function(s) { s$beta5 <- s$beta5 + rnorm(1, 0, 0.12); s }
+    )
+    current <- out$state; logp_current <- out$logp
+
+    out <- mh_update(
+      current, y, logp_current,
+      function(s) { s$ell <- s$ell + rnorm(1, 0, 0.15); s }
+    )
+    current <- out$state; logp_current <- out$logp
+
+    for (j in seq_along(current$z)) {
+      out <- mh_update(
+        current, y, logp_current,
+        function(s) {
+          s$z[j] <- s$z[j] + rnorm(1, 0, 0.30)
+          s
+        }
+      )
+      current <- out$state; logp_current <- out$logp
+    }
+  }
+
+  extract_summary_intermediate(current, summary)
+}
+```
+
+```{r}
+
+# exact invariance test
+exact_invariance_intermediate <- function(summary = "alpha", n_rep = 200, n_iter = 30, N = 20) {
+  forward_only <- replicate(n_rep, stationary_mcmc_intermediate(0, N, summary))
+  with_mcmc    <- replicate(n_rep, stationary_mcmc_intermediate(n_iter, N, summary))
+
+  ks <- ks.test(forward_only, with_mcmc)
+
+  data.frame(
+    summary = summary,
+    D_statistic = unname(ks$statistic),
+    p_value = ks$p.value
+  )
+}
+
+# run a few summaries
+rbind(
+  exact_invariance_intermediate("alpha"),
+  exact_invariance_intermediate("beta1"),
+  exact_invariance_intermediate("beta5"),
+  exact_invariance_intermediate("sigma")
+)
+
+```
+
+## 1.4 ESS
+
+```{r}
+
+# 1.6 ESS for intermediate model
+
+ess_table_intermediate <- fit_hmc$summary(
+  NULL,
+  c("mean", "sd", "mcse_mean", "ess_bulk", "ess_tail", "rhat")
+)
+
+ess_table_intermediate[
+  ess_table_intermediate$variable %in% c("alpha", "beta1", "beta5", "sigma"),
+  c("variable", "mean", "sd", "mcse_mean", "ess_bulk", "ess_tail", "rhat")
+]
+```
+
+## 3 Advanced Model
+
+## 3.2 Model Implementation
+
+```{r}
+
+# -----------------------------
+dat <- read_tsv("Data/Backup/backup.tsv", show_col_types = FALSE) %>%
+  arrange(id, day, beep) %>%
+  mutate(
+    happy = as.integer(happy),
+    row_index = row_number()
+  )
+
+
+# 1) Standardize exogenous predictors using observed values only
+
+scale_to_numeric <- function(x) {
+  m <- mean(x, na.rm = TRUE)
+  s <- sd(x, na.rm = TRUE)
+  (x - m) / s
+}
+
+dat <- dat %>%
+  mutate(
+    enthusiastic_std = scale_to_numeric(enthusiastic),
+    pleased_std      = scale_to_numeric(pleased),
+    relaxed_std      = scale_to_numeric(relaxed)
+  )
+
+
+# 2) Basic observed-y objects
+
+N <- nrow(dat)
+
+is_obs <- !is.na(dat$happy)
+obs_index <- which(is_obs)
+y_obs <- dat$happy[is_obs]
+N_obs <- length(y_obs)
+
+
+# 3) Build latent lag structure
+
+has_lag1 <- rep(0L, N)
+lag1_index <- rep(0L, N)
+
+has_lag5 <- rep(0L, N)
+lag5_index <- rep(0L, N)
+
+for (i in seq_len(N)) {
+  # lag 1: previous row must be same participant
+  if (i > 1 && dat$id[i] == dat$id[i - 1]) {
+    has_lag1[i] <- 1L
+    lag1_index[i] <- i - 1L
+  }
+
+  # lag 5: five rows before must be same participant
+  if (i > 5 && dat$id[i] == dat$id[i - 5]) {
+    has_lag5[i] <- 1L
+    lag5_index[i] <- i - 5L
+  }
+}
+
+
+# 4) Build lagged exogenous predictors
+#    Use previous-row values only if same participant and observed
+
+enth_lag1 <- rep(0, N)
+pleased_lag1 <- rep(0, N)
+relaxed_lag1 <- rep(0, N)
+
+has_enth_lag1 <- rep(0L, N)
+has_pleased_lag1 <- rep(0L, N)
+has_relaxed_lag1 <- rep(0L, N)
+
+for (i in seq_len(N)) {
+  if (i > 1 && dat$id[i] == dat$id[i - 1]) {
+    if (!is.na(dat$enthusiastic_std[i - 1])) {
+      enth_lag1[i] <- dat$enthusiastic_std[i - 1]
+      has_enth_lag1[i] <- 1L
+    }
+    if (!is.na(dat$pleased_std[i - 1])) {
+      pleased_lag1[i] <- dat$pleased_std[i - 1]
+      has_pleased_lag1[i] <- 1L
+    }
+    if (!is.na(dat$relaxed_std[i - 1])) {
+      relaxed_lag1[i] <- dat$relaxed_std[i - 1]
+      has_relaxed_lag1[i] <- 1L
+    }
+  }
+}
+
+
+# 5) Final Stan data list
+
+stan_data_model3 <- list(
+  N = N,
+  N_obs = N_obs,
+  y_obs = y_obs,
+  obs_index = obs_index,
+  has_lag1 = has_lag1,
+  lag1_index = lag1_index,
+  has_lag5 = has_lag5,
+  lag5_index = lag5_index,
+  enth_lag1 = enth_lag1,
+  pleased_lag1 = pleased_lag1,
+  relaxed_lag1 = relaxed_lag1,
+  has_enth_lag1 = has_enth_lag1,
+  has_pleased_lag1 = has_pleased_lag1,
+  has_relaxed_lag1 = has_relaxed_lag1
+)
+
+
+stopifnot(length(y_obs) == N_obs)
+stopifnot(length(obs_index) == N_obs)
+stopifnot(length(has_lag1) == N)
+stopifnot(length(lag1_index) == N)
+stopifnot(length(has_lag5) == N)
+stopifnot(length(lag5_index) == N)
+stopifnot(length(enth_lag1) == N)
+stopifnot(length(pleased_lag1) == N)
+stopifnot(length(relaxed_lag1) == N)
+```
+
+```{r}
+#HMC
+dir.create("stan_out", showWarnings = FALSE)
+
+mod_model3 <- cmdstan_model("advanced_model.stan")
+
+fit_hmc_model3 <- mod_model3$sample(
+  data = stan_data_model3,
+  chains = 2,
+  seed = 405,
+  iter_warmup =500,
+  iter_sampling = 1000,
+  refresh = 100,
+  max_treedepth = 15,
+  parallel_chains = 2,
+  output_dir = "stan_out",
+)
+```
+
+```{r}
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(bayesplot)
+  library(gridExtra)
+  library(grid)
+})
+
+p1<-mcmc_trace(fit_hmc_model3$draws("gamma_enth")) + theme_minimal()
+p1
+```
+
+```{r}
+p2<-mcmc_rank_hist(fit_hmc_model3$draws("gamma_enth")) 
+desktop <- file.path(Sys.getenv("USERPROFILE"), "Desktop")   # Windows
+
+pdf(file.path(desktop, "mu_diagnostics.pdf"), width = 12, height = 5)
+grid.arrange(p1, p2, ncol = 2)
+dev.off()
+```
+
+```{r}
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(bayesplot)
+  library(gridExtra)
+  library(grid)
+})
+
+# save one diagnostic pdf for one parameter
+save_diag_pdf <- function(fit_obj, param_name, file_prefix = "advanced") {
+  p1 <- mcmc_trace(fit_obj$draws(param_name)) + theme_minimal()
+  p2 <- mcmc_rank_hist(fit_obj$draws(param_name)) + theme_minimal()
+
+  desktop <- file.path(Sys.getenv("USERPROFILE"), "Desktop")   # Windows
+  out_file <- file.path(desktop, paste0(file_prefix, "_", param_name, "_diagnostics.pdf"))
+
+  pdf(out_file, width = 12, height = 5)
+  grid.arrange(p1, p2, ncol = 2)
+  dev.off()
+
+  cat("Saved:", out_file, "\n")
+}
+
+save_diag_pdf(fit_hmc_model3, "alpha")
+save_diag_pdf(fit_hmc_model3, "beta1")
+save_diag_pdf(fit_hmc_model3, "beta5")
+save_diag_pdf(fit_hmc_model3, "gamma_enth")
+save_diag_pdf(fit_hmc_model3, "gamma_pleased")
+save_diag_pdf(fit_hmc_model3, "gamma_relaxed")
+save_diag_pdf(fit_hmc_model3, "sigma")
+```
+
+Exact Invar Test
+
+```{r}
+set.seed(405)
+
+# build a small debug version with N = 30
+
+N_small <- 20
+
+stan_data_ext_small <- stan_data_model3
+
+keep_obs <- which(stan_data_model3$obs_index <= N_small)
+
+stan_data_ext_small$N <- N_small
+stan_data_ext_small$N_obs <- length(keep_obs)
+stan_data_ext_small$y_obs <- stan_data_model3$y_obs[keep_obs]
+stan_data_ext_small$obs_index <- stan_data_model3$obs_index[keep_obs]
+
+stan_data_ext_small$has_lag1 <- stan_data_model3$has_lag1[1:N_small]
+stan_data_ext_small$lag1_index <- stan_data_model3$lag1_index[1:N_small]
+
+stan_data_ext_small$has_lag5 <- stan_data_model3$has_lag5[1:N_small]
+stan_data_ext_small$lag5_index <- stan_data_model3$lag5_index[1:N_small]
+
+stan_data_ext_small$has_enth_lag1 <- stan_data_model3$has_enth_lag1[1:N_small]
+stan_data_ext_small$enth_lag1 <- stan_data_model3$enth_lag1[1:N_small]
+
+stan_data_ext_small$has_pleased_lag1 <- stan_data_model3$has_pleased_lag1[1:N_small]
+stan_data_ext_small$pleased_lag1 <- stan_data_model3$pleased_lag1[1:N_small]
+
+stan_data_ext_small$has_relaxed_lag1 <- stan_data_model3$has_relaxed_lag1[1:N_small]
+stan_data_ext_small$relaxed_lag1 <- stan_data_model3$relaxed_lag1[1:N_small]
+
+
+# fixed cutpoints
+
+cuts_fixed <- c(-2.5, -1.5, -0.5, 0.5, 1.5, 2.5)
+
+
+# ordered logistic helpers
+
+ordered_logistic_probs <- function(eta, cuts = cuts_fixed) {
+  p <- numeric(length(cuts) + 1)
+  p[1] <- plogis(cuts[1] - eta)
+  for (k in 2:length(cuts)) {
+    p[k] <- plogis(cuts[k] - eta) - plogis(cuts[k - 1] - eta)
+  }
+  p[length(cuts) + 1] <- 1 - plogis(cuts[length(cuts)] - eta)
+  pmax(p, 1e-12)
+}
+
+rordered_logistic1 <- function(eta, cuts = cuts_fixed) {
+  sample.int(length(cuts) + 1, 1, prob = ordered_logistic_probs(eta, cuts))
+}
+
+log_ordered_logistic_vec <- function(y, eta, cuts = cuts_fixed) {
+  probs <- mapply(function(yy, ee) ordered_logistic_probs(ee, cuts)[yy], y, eta)
+  sum(log(pmax(probs, 1e-12)))
+}
+
+
+# reconstruct transformed params and latent path
+# matching advanced_model.stan
+
+make_x_extended <- function(state, dat) {
+  alpha <- state$alpha_raw
+  beta1 <- 0.45 * tanh(state$beta1_raw)
+  beta5 <- 0.45 * tanh(state$beta5_raw)
+  sigma <- exp(state$ell)
+
+  N <- dat$N
+  x <- numeric(N)
+  mean_x <- numeric(N)
+
+  for (i in seq_len(N)) {
+    mean_x[i] <- alpha
+
+    if (dat$has_lag1[i] == 1) {
+      mean_x[i] <- mean_x[i] + beta1 * x[dat$lag1_index[i]]
+    }
+
+    if (dat$has_lag5[i] == 1) {
+      mean_x[i] <- mean_x[i] + beta5 * x[dat$lag5_index[i]]
+    }
+
+    if (dat$has_enth_lag1[i] == 1) {
+      mean_x[i] <- mean_x[i] + state$gamma_enth * dat$enth_lag1[i]
+    }
+
+    if (dat$has_pleased_lag1[i] == 1) {
+      mean_x[i] <- mean_x[i] + state$gamma_pleased * dat$pleased_lag1[i]
+    }
+
+    if (dat$has_relaxed_lag1[i] == 1) {
+      mean_x[i] <- mean_x[i] + state$gamma_relaxed * dat$relaxed_lag1[i]
+    }
+
+    x[i] <- mean_x[i] + sigma * state$z[i]
+
+    if (!is.finite(x[i])) return(NULL)
+  }
+
+  list(
+    alpha = alpha,
+    beta1 = beta1,
+    beta5 = beta5,
+    sigma = sigma,
+    mean_x = mean_x,
+    x = x
+  )
+}
+
+
+# forward simulator
+
+forward_extended <- function(dat, cuts = cuts_fixed) {
+  repeat {
+    state <- list(
+      alpha_raw = rnorm(1, 0, 1),
+      beta1_raw = rnorm(1, 0, 1),
+      beta5_raw = rnorm(1, 0, 1),
+      gamma_enth = rnorm(1, 0, 0.5),
+      gamma_pleased = rnorm(1, 0, 0.5),
+      gamma_relaxed = rnorm(1, 0, 0.5),
+      ell = log(rexp(1, rate = 2)),
+      z = rnorm(dat$N)
+    )
+
+    comp <- make_x_extended(state, dat)
+
+    if (!is.null(comp)) {
+      y_obs <- sapply(comp$x[dat$obs_index], rordered_logistic1, cuts = cuts)
+      state$y_obs <- y_obs
+      return(state)
+    }
+  }
+}
+
+# # joint density
+
+joint_extended <- function(state, y_obs, dat, cuts = cuts_fixed) {
+  comp <- make_x_extended(state, dat)
+  if (is.null(comp)) return(-Inf)
+
+  dnorm(state$alpha_raw, 0, 1, log = TRUE) +
+    dnorm(state$beta1_raw, 0, 1, log = TRUE) +
+    dnorm(state$beta5_raw, 0, 1, log = TRUE) +
+    dnorm(state$gamma_enth, 0, 0.5, log = TRUE) +
+    dnorm(state$gamma_pleased, 0, 0.5, log = TRUE) +
+    dnorm(state$gamma_relaxed, 0, 0.5, log = TRUE) +
+    dexp(comp$sigma, rate = 2, log = TRUE) +
+    state$ell +   # Jacobian for sigma = exp(ell)
+    sum(dnorm(state$z, 0, 1, log = TRUE)) +
+    log_ordered_logistic_vec(y_obs, comp$x[dat$obs_index], cuts)
+}
+
+
+# summary extractor
+
+extract_summary_extended <- function(
+    state, dat,
+    summary = c("alpha", "beta1", "beta5",
+                "gamma_enth", "gamma_pleased", "gamma_relaxed",
+                "sigma", "xbar", "x6")
+) {
+  summary <- match.arg(summary)
+  comp <- make_x_extended(state, dat)
+
+  switch(
+    summary,
+    alpha = comp$alpha,
+    beta1 = comp$beta1,
+    beta5 = comp$beta5,
+    gamma_enth = state$gamma_enth,
+    gamma_pleased = state$gamma_pleased,
+    gamma_relaxed = state$gamma_relaxed,
+    sigma = comp$sigma,
+    xbar = mean(comp$x),
+    x6 = comp$x[min(6, length(comp$x))]
+  )
+}
+
+
+# one MH update helper
+
+mh_update <- function(state, y_obs, logp_current, proposal_fun, dat) {
+  proposal <- proposal_fun(state)
+  logp_prop <- joint_extended(proposal, y_obs, dat)
+
+  if (log(runif(1)) < (logp_prop - logp_current)) {
+    list(state = proposal, logp = logp_prop)
+  } else {
+    list(state = state, logp = logp_current)
+  }
+}
+
+# forward-simulation-initialized MCMC
+
+stationary_mcmc_extended <- function(n_iterations, dat = stan_data_ext_small, summary = "alpha") {
+  initialization <- forward_extended(dat)
+  y_obs <- initialization$y_obs
+
+  if (n_iterations == 0) {
+    return(extract_summary_extended(initialization, dat, summary))
+  }
+
+  current <- initialization
+  logp_current <- joint_extended(current, y_obs, dat)
+
+  for (iter in seq_len(n_iterations)) {
+
+    out <- mh_update(
+      current, y_obs, logp_current,
+      function(s) { s$alpha_raw <- s$alpha_raw + rnorm(1, 0, 0.15); s },
+      dat
+    )
+    current <- out$state; logp_current <- out$logp
+
+    out <- mh_update(
+      current, y_obs, logp_current,
+      function(s) { s$beta1_raw <- s$beta1_raw + rnorm(1, 0, 0.12); s },
+      dat
+    )
+    current <- out$state; logp_current <- out$logp
+
+    out <- mh_update(
+      current, y_obs, logp_current,
+      function(s) { s$beta5_raw <- s$beta5_raw + rnorm(1, 0, 0.12); s },
+      dat
+    )
+    current <- out$state; logp_current <- out$logp
+
+    out <- mh_update(
+      current, y_obs, logp_current,
+      function(s) { s$gamma_enth <- s$gamma_enth + rnorm(1, 0, 0.08); s },
+      dat
+    )
+    current <- out$state; logp_current <- out$logp
+
+    out <- mh_update(
+      current, y_obs, logp_current,
+      function(s) { s$gamma_pleased <- s$gamma_pleased + rnorm(1, 0, 0.08); s },
+      dat
+    )
+    current <- out$state; logp_current <- out$logp
+
+    out <- mh_update(
+      current, y_obs, logp_current,
+      function(s) { s$gamma_relaxed <- s$gamma_relaxed + rnorm(1, 0, 0.08); s },
+      dat
+    )
+    current <- out$state; logp_current <- out$logp
+
+    out <- mh_update(
+      current, y_obs, logp_current,
+      function(s) { s$ell <- s$ell + rnorm(1, 0, 0.10); s },
+      dat
+    )
+    current <- out$state; logp_current <- out$logp
+
+    for (j in seq_along(current$z)) {
+      out <- mh_update(
+        current, y_obs, logp_current,
+        function(s) {
+          s$z[j] <- s$z[j] + rnorm(1, 0, 0.25)
+          s
+        },
+        dat
+      )
+      current <- out$state
+      logp_current <- out$logp
+    }
+  }
+
+  extract_summary_extended(current, dat, summary)
+}
+
+
+# exact invariance test
+# same logic as before
+
+exact_invariance_extended <- function(summary = "alpha",
+                                      n_rep = 200,
+                                      n_iter = 30,
+                                      dat = stan_data_ext_small) {
+  forward_only <- replicate(
+    n_rep,
+    stationary_mcmc_extended(0, dat, summary)
+  )
+
+  with_mcmc <- replicate(
+    n_rep,
+    stationary_mcmc_extended(n_iter, dat, summary)
+  )
+
+  ks <- ks.test(forward_only, with_mcmc)
+
+  data.frame(
+    summary = summary,
+    D_statistic = unname(ks$statistic),
+    p_value = ks$p.value
+  )
+}
+
+
+# run the test
+# consistent with earlier scale: N = 30
+
+rbind(
+  exact_invariance_extended("alpha", n_rep = 200, n_iter = 30),
+  exact_invariance_extended("beta1", n_rep = 200, n_iter = 30),
+  exact_invariance_extended("beta5", n_rep = 200, n_iter = 30),
+  exact_invariance_extended("gamma_enth", n_rep = 200, n_iter = 30),
+  exact_invariance_extended("gamma_pleased", n_rep = 200, n_iter = 30),
+  exact_invariance_extended("gamma_relaxed", n_rep = 200, n_iter = 30),
+  exact_invariance_extended("sigma", n_rep = 200, n_iter = 30)
+)
+
+
+```
+
+ESS
+
+```{r}
+
+# ESS for extended model
+
+ess_table_extended <- fit_hmc_model3$summary(
+  NULL,
+  c("mean", "sd", "mcse_mean", "ess_bulk", "ess_tail", "rhat")
+)
+
+ess_table_extended[
+  ess_table_extended$variable %in% c(
+    "alpha", "beta1", "beta5",
+    "gamma_enth", "gamma_pleased", "gamma_relaxed",
+    "sigma"
+  ),
+  c("variable", "mean", "sd", "mcse_mean", "ess_bulk", "ess_tail", "rhat")
+]
+```
