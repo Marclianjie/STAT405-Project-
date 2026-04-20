@@ -12,7 +12,40 @@
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{subcaption}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
 
+\lstdefinelanguage{Stan}{
+  morekeywords={
+    data,transformed data,parameters,transformed parameters,model,
+    generated quantities,functions,for,in,if,else,return,
+    int,real,vector,array,matrix,row_vector,ordered,simplex
+  },
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]"
+}
+
+\lstset{
+  language=Stan,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue},
+  commentstyle=\color{teal},
+  stringstyle=\color{orange},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  stepnumber=1,
+  numbersep=8pt,
+  breaklines=true,
+  breakatwhitespace=false,
+  showstringspaces=false,
+  frame=single,
+  columns=fullflexible,
+  tabsize=2,
+  captionpos=b
+}
 
 \usepackage{titlesec}
 
@@ -30,6 +63,10 @@ backend=biber,
 sorting=nyt
 ]{biblatex}
 \addbibresource{references.bib}
+\usepackage{titling}
+\setlength{\droptitle}{-2.5cm}
+
+\posttitle{\par\vspace{0.1em}\end{center}}
 
 % Hyperlinks
 \usepackage{hyperref}
@@ -75,13 +112,19 @@ April 2026 \\
 
 \section{Literature Review}
 
-Emotions play a fundamental role in psychological well-being and daily functioning, and understanding how emotional states evolve over time has become an important topic in psychology and behavioral science \cite{kuppens2017, houben2016, pirla2023}. Traditional research on affect has often relied on static summaries of emotion, such as average levels of positive or negative affect measured through questionnaires. However, such approaches ignore the temporal dynamics of emotional experiences. In reality, emotional states fluctuate continuously and are influenced by both internal processes and external factors, motivating recent work that models emotions as dynamic systems in which past states influence future states \cite{kuppens2017, haslbeck2022}. 
+Emotions play a central role in psychological well-being and daily functioning, and understanding how they change over time has become an important topic in psychology and behavioral science \cite{kuppens2017, houben2016, pirla2023}. Traditional affect research has often relied on static summaries, such as average questionnaire-based measures of positive or negative affect. However, such approaches overlook temporal dynamics. In reality, emotional states fluctuate continuously and are shaped by both internal processes and external factors, motivating recent work that treats emotions as dynamic systems in which past states influence future states \cite{kuppens2017, haslbeck2022}.
 
-Recent work in the experience sampling methodology (ESM) literature has emphasized the importance of modeling emotional dynamics in daily life. For example, \cite{Kullar2024} investigates how emotion measurements evolve over time and proposes improvements in measurement design to reduce reporting noise and improve reliability. However, such approaches typically treat the observed emotion scores as direct representations of the underlying emotional state. From a statistical perspective, this assumption can be restrictive, as psychological measurements are subject to substantial measurement error. Self-reported emotion ratings may reflect both the true emotional state and additional reporting noise, rather than the latent state itself.
+% Recent work in the experience sampling methodology (ESM) literature has emphasized the importance of modeling emotional dynamics in daily life. For example, \cite{Kullar2024} investigates how emotion measurements evolve over time and proposes improvements in measurement design to reduce reporting noise and improve reliability. However, such approaches typically treat the observed emotion scores as direct representations of the underlying emotional state. From a statistical perspective, this assumption can be restrictive, as psychological measurements are subject to substantial measurement error. Self-reported emotion ratings may reflect both the true emotional state and additional reporting noise, rather than the latent state itself.
 
-To address this limitation, a natural Bayesian approach is to introduce a latent-state formulation, in which the true emotional state is treated as an unobserved continuous variable and the observed ratings are modeled as noisy realizations generated from a likelihood distribution conditional on this latent state. This framework explicitly accounts for measurement error and allows for a more principled generative interpretation of the data. In this project, we adopt such a Bayesian latent-variable framework to study emotional dynamics using the ESM dataset. We consider three progressively richer models: a naive baseline with independent latent states, a dynamic latent-state model with autoregressive structure, and an extended model that incorporates lagged emotional predictors. By comparing these models, we aim to evaluate whether incorporating temporal dependence and additional predictors improves predictive performance and provides a better explanation of the observed emotional measurements.
+Recent work in the experience sampling methodology (ESM) literature has emphasized the importance of modeling emotional dynamics in daily life. For example, \cite{Kullar2024} examines how emotion measurements evolve over time and proposes improved measurement designs to reduce reporting noise and enhance reliability. However, such approaches typically treat observed emotion scores as direct measures of the underlying emotional state. This assumption may be restrictive, as psychological measurements are often subject to substantial error: self-reported ratings may reflect both the true latent state and additional reporting noise.
 
-In addition to comparing modeling approaches, we also examine different methods for approximating the posterior distribution. Specifically, we compare Hamiltonian Monte Carlo (HMC), which provides asymptotically exact posterior samples, with variational inference (VI), which offers a computationally efficient but approximate alternative. This allows us to assess the trade-off between computational efficiency and approximation accuracy in modeling emotional dynamics.
+% To address this limitation, a natural Bayesian approach is to introduce a latent-state formulation, in which the true emotional state is treated as an unobserved continuous variable and the observed ratings are modeled as noisy realizations generated from a likelihood distribution conditional on this latent state. This framework explicitly accounts for measurement error and allows for a more principled generative interpretation of the data. In this project, we adopt such a Bayesian latent-variable framework to study emotional dynamics using the ESM dataset. We consider three progressively richer models: a naive baseline with independent latent states, a dynamic latent-state model with autoregressive structure, and an extended model that incorporates lagged emotional predictors. By comparing these models, we aim to evaluate whether incorporating temporal dependence and additional predictors improves predictive performance and provides a better explanation of the observed emotional measurements.
+
+
+To address this limitation, we adopt a Bayesian latent-variable framework in which the true emotional state is modeled as an unobserved continuous variable and the observed ratings are treated as noisy realizations conditional on that state. This accounts for measurement error and provides a more principled generative interpretation of the data. Using the ESM dataset, we compare three increasingly rich models: a naive baseline with independent latent states, a dynamic latent-state model with autoregressive structure, and an extended model with additional lagged emotional predictors. 
+
+% In addition to comparing modeling approaches, we also examine different methods for approximating the posterior distribution. Specifically, we compare Hamiltonian Monte Carlo (HMC), which provides asymptotically exact posterior samples, with variational inference (VI), which offers a computationally efficient but approximate alternative. This allows us to assess the trade-off between computational efficiency and approximation accuracy in modeling emotional dynamics.
+We also compare two posterior approximation methods: Hamiltonian Monte Carlo (HMC), which yields asymptotically exact posterior samples, and variational inference (VI), which provides a faster but approximate alternative. This comparison highlights the trade-off between computational efficiency and approximation accuracy in modeling emotional dynamics. Accordingly, we aim to identify the most suitable Bayesian model for dynamic emotional networks while comparing HMC and VI in terms of computational efficiency and approximation accuracy.
 
 
 
@@ -89,35 +132,33 @@ In addition to comparing modeling approaches, we also examine different methods 
 
 \subsection{Choosing the Initial Focal Emotion}
 
-Before fitting the Bayesian models, we carried out a brief exploratory screening analysis to identify a reasonable initial emotion for the univariate naive model. We used a two-step procedure.
+Before fitting the Bayesian models, we conducted a brief screening analysis to choose a focal emotion for the univariate naive model. First, we examined the Spearman correlation heatmap for the nine emotion variables (Figure~\ref{fig:corr_heatmap} in the appendix). The heatmap showed that \texttt{happy} was strongly associated with several positive emotions, especially \texttt{pleased} and \texttt{enthusiastic}, and moderately negatively associated with several negative emotions, suggesting that it occupies a relatively central position in the emotion system.
 
-First, we examined the Spearman correlation heatmap for the nine emotion variables (Figure~\ref{fig:corr_heatmap}). The heatmap showed that \texttt{happy} was strongly associated with several other positive emotions, especially \texttt{pleased} and \texttt{enthusiastic}, while also showing moderate negative association with several negative emotions. This suggested that \texttt{happy} may occupy a relatively central position in the emotion system.
-
-Second, because correlation alone does not fully capture predictive ability, we performed a one-step-ahead screening analysis using leave-one-subject-out cross-validation. See Table~\ref{tab:overall_scores} of the resulting ranking in the appendix for a more detailed explanation. Under this criterion, \texttt{happy} ranked first, with the largest mean relative reduction in prediction error. Since \texttt{happy} was supported by both the correlation-based and predictive screening analyses, we selected it as the focal emotion for the univariate naive Bayesian model.
+We then performed a one-step-ahead screening analysis using leave-one-subject-out cross-validation, since correlation alone does not fully capture predictive usefulness. As shown in Table~\ref{tab:overall_scores} in the appendix, \texttt{happy} ranked first, with the largest mean relative reduction in prediction error. Taken together, these results motivated our choice of \texttt{happy} as the focal emotion for the univariate naive Bayesian model.
 
 \subsection{Temporal Dependence of Happy}
 
-To examine whether \texttt{happy} exhibits temporal dependence, we first considered the autocorrelation function (ACF) of the average \texttt{happy} series over the ordered day-by-beep index. As shown in Figure~\ref{fig:happy_acf_ccf_combined}, the lag-1 autocorrelation is relatively weak, but there are clear positive spikes at lags 5, 10, and 15. Since the data contain five beeps per day, these peaks suggest a recurring day-level pattern in \texttt{happy} rather than a purely independent sequence. This provides empirical support for modelling temporal dependence instead of assuming an i.i.d.\ structure.
-
-We then examined the cross-correlation function (CCF) between \texttt{happy} and two closely related positive emotions, \texttt{pleased} and \texttt{enthusiastic}. Figure~\ref{fig:happy_acf_ccf_combined} shows that both pairs display their strongest positive association near lag 0, indicating that these emotions tend to move together contemporaneously. The relationship between \texttt{happy} and \texttt{pleased} is especially strong, while the \texttt{happy}--\texttt{enthusiastic} association is somewhat weaker but still clearly positive around zero lag. In addition, several smaller peaks appear at multiples of 5, suggesting that these positive emotions may share a similar daily rhythm. Overall, these plots indicate that \texttt{happy} is temporally structured and closely connected to other positive emotions, which supports the use of time-dependent latent-state models.
-
+To assess temporal dependence in \texttt{happy}, we examined the autocorrelation function (ACF) of its average series over the ordered day-by-beep index. Figure~\ref{fig:happy_acf_ccf_combined} shows positive spikes at lags 5, 10, and 15, suggesting a recurring day-level pattern rather than an independent sequence.
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{happy_acf_ccf_combined.pdf}
+    \includegraphics[width=0.7\textwidth]{happy_acf_ccf_combined.pdf}
     \caption{Autocorrelation of \texttt{happy} and cross-correlations of \texttt{happy} with \texttt{pleased} and \texttt{enthusiastic}.}
     \label{fig:happy_acf_ccf_combined}
 \end{figure}
 
 
+We also examined the cross-correlation function (CCF) between \texttt{happy} and the related positive emotions \texttt{pleased} and \texttt{enthusiastic}. Both pairs show their strongest positive association near lag 0, with a stronger relationship for \texttt{happy}--\texttt{pleased}. Together, these results support time-dependent latent-state models for \texttt{happy}.
+
+
 \section{Methodology}
 \subsection{Models}
-\subsubsection{Naive Model}
+\subsubsection{Naive Model (Code~\ref{lst:naive_stan})}
 
 As a baseline, we use an independent latent-variable model with an ordered logistic likelihood. For each observation \(i=1,\dots,N\), let \(y_i \in \{1,2,3,4,5,6,7\}\) denote the observed ordinal happiness rating and let \(x_i \in \mathbb{R}\) denote a latent continuous happiness level. We assume
 \[
 x_i \overset{\mathrm{iid}}{\sim} \mathcal{N}(\mu,\sigma^2),
-\qquad
+\qquad 
 \mu \sim \mathcal{N}(0,1.5^2),
 \qquad
 \sigma \sim \mathrm{Exponential}(1).
@@ -126,10 +167,7 @@ Conditional on \(x_i\), the response follows an ordered logistic model,
 \[
 y_i \mid x_i \sim \mathrm{OrderedLogistic}(x_i,\mathbf{c}),
 \]
-where the cutpoints are fixed at
-\[
-\mathbf{c}=(-2.5,-1.5,-0.5,0.5,1.5,2.5).
-\]
+where the cutpoints are fixed at $\mathbf{c}=(-2.5,-1.5,-0.5,0.5,1.5,2.5)$.
 These cutpoints place \(0\) at the center of the latent scale, corresponding to the middle of the 7-point response scale. Equivalently, the model can be written using a latent logistic noise term:
 \[
 y_i =
@@ -144,43 +182,97 @@ y_i =
 \]
 This naive model ignores temporal dependence, subject-specific dynamics, and cross-emotion effects, and instead treats all observations as exchangeable draws from a common latent distribution.
 
-\subsubsection{Intermediate Model (with Time Structure)}
+\subsubsection{Intermediate Model (with Time Structure)  (Code~\ref{lst:intermediate_stan})}
+
+% We next extend the naive model by allowing the latent happiness process to evolve over time. Let \(x_i\) again denote the latent continuous happiness state at observation \(i\). For observations with available lagged values, we assume
+% \[
+% x_i \mid x_{i-1},x_{i-5} \sim \mathcal{N}(\mu_i,\sigma^2),
+% \]
+% with conditional mean
+% \[
+% \mu_i = \alpha + \beta_1 x_{i-1} + \beta_5 x_{i-5}.
+% \]
+% Thus, the current latent happiness level depends on both the immediately previous latent state and the latent state five prompts earlier. For early observations where the required lags are unavailable, the latent state is initialized from the baseline level:
+% \[
+% x_i \sim \mathcal{N}(\alpha,\sigma^2).
+% \]
+% We place priors
+% \[
+% \alpha \sim \mathcal{N}(0,1.5^2), \qquad
+% \beta_1 \sim \mathcal{N}(0,1), \qquad
+% \beta_5 \sim \mathcal{N}(0,1), \qquad
+% \sigma \sim \mathrm{Exponential}(1).
+% \]
+% The observation model remains the same as in the naive model.
+% Unlike the naive model, this specification preserves the ordinal likelihood while introducing temporal dependence in the latent process. Missing observed happiness ratings are not removed from the time series; instead, the latent process is defined over all time points and the likelihood is applied only to observed responses, thereby preserving the lag structure.
 
 We next extend the naive model by allowing the latent happiness process to evolve over time. Let \(x_i\) again denote the latent continuous happiness state at observation \(i\). For observations with available lagged values, we assume
 \[
 x_i \mid x_{i-1},x_{i-5} \sim \mathcal{N}(\mu_i,\sigma^2),
-\]
-with conditional mean
-\[
+\qquad
 \mu_i = \alpha + \beta_1 x_{i-1} + \beta_5 x_{i-5}.
 \]
-Thus, the current latent happiness level depends on both the immediately previous latent state and the latent state five prompts earlier. For early observations where the required lags are unavailable, the latent state is initialized from the baseline level:
+Thus, the current latent happiness level depends on both the immediately previous latent state and the latent state five prompts earlier. For early observations where the required lags are unavailable, we instead assume
 \[
-x_i \sim \mathcal{N}(\alpha,\sigma^2).
-\]
-We place priors
-\[
-\alpha \sim \mathcal{N}(0,1.5^2), \qquad
-\beta_1 \sim \mathcal{N}(0,1), \qquad
-\beta_5 \sim \mathcal{N}(0,1), \qquad
+x_i \sim \mathcal{N}(\alpha,\sigma^2),
+\qquad
+\alpha \sim \mathcal{N}(0,1.5^2),
+\qquad
+\beta_1,\beta_5 \sim \mathcal{N}(0,1),
+\qquad
 \sigma \sim \mathrm{Exponential}(1).
 \]
-The observation model remains the same as in the naive model.
-Unlike the naive model, this specification preserves the ordinal likelihood while introducing temporal dependence in the latent process. Missing observed happiness ratings are not removed from the time series; instead, the latent process is defined over all time points and the likelihood is applied only to observed responses, thereby preserving the lag structure.
+The observation model remains the same as in the naive model. Unlike the naive model, this specification preserves the ordinal likelihood while introducing temporal dependence in the latent process. Missing observed happiness ratings are not removed from the time series; instead, the latent process is defined over all time points and the likelihood is applied only to observed responses, thereby preserving the lag structure.
 
-\subsubsection{Extended Model (with Time Structure and Additional Predictors)}
 
-Finally, we consider an extension of the intermediate model that incorporates additional lagged emotion predictors. Based on the exploratory screening analysis, the selected predictors were \texttt{enthusiastic}, \texttt{pleased}, and \texttt{relaxed}. Let
-\[
-e_{i-1}, \quad p_{i-1}, \quad r_{i-1}
-\]
-denote the lagged values of these three predictors at the previous prompt. We then model the latent happiness state as
+% \subsubsection{Extended Model (with Time Structure and Additional Predictors)}
+
+% Finally, we consider an extension of the intermediate model that incorporates additional lagged emotion predictors. Based on the exploratory screening analysis, the selected predictors were \texttt{enthusiastic}, \texttt{pleased}, and \texttt{relaxed}. Let
+% \[
+% e_{i-1}, \quad p_{i-1}, \quad r_{i-1}
+% \]
+% denote the lagged values of these three predictors at the previous prompt. We then model the latent happiness state as
+% \[
+% x_i \mid x_{i-1},x_{i-5},e_{i-1},p_{i-1},r_{i-1}
+% \sim \mathcal{N}(\mu_i,\sigma^2),
+% \]
+% where
+% \[
+% \mu_i
+% =
+% \alpha
+% +\beta_1 x_{i-1}
+% +\beta_5 x_{i-5}
+% +\gamma_1 e_{i-1}
+% +\gamma_2 p_{i-1}
+% +\gamma_3 r_{i-1}.
+% \]
+% Here, \(\beta_1\) and \(\beta_5\) capture autoregressive dependence in latent happiness, while \(\gamma_1,\gamma_2,\gamma_3\) measure the contributions of lagged enthusiasm, pleased, and relaxed scores, respectively. For observations where lagged values are unavailable, the latent state is again initialized from
+% \[
+% x_i \sim \mathcal{N}(\alpha,\sigma^2).
+% \]
+% We place priors
+% \[
+% \alpha \sim \mathcal{N}(0,1.5^2), \qquad
+% \beta_1 \sim \mathcal{N}(0,1), \qquad
+% \beta_5 \sim \mathcal{N}(0,1),
+% \]
+% \[
+% \gamma_1 \sim \mathcal{N}(0,1), \qquad
+% \gamma_2 \sim \mathcal{N}(0,1), \qquad
+% \gamma_3 \sim \mathcal{N}(0,1), \qquad
+% \sigma \sim \mathrm{Exponential}(1).
+% \]
+% The observation model remains the same as in the previous models.
+% This model allows future happiness ratings to be explained jointly by persistence in the latent happiness process and by lagged values of related positive-emotion variables.
+
+\subsubsection{Extended Model (with Time Structure and Additional Predictors) (Code~\ref{lst:advanced_stan})}
+
+Finally, we consider an extension of the intermediate model that incorporates additional lagged emotion predictors. Based on the exploratory screening analysis, the selected predictors were \texttt{enthusiastic}, \texttt{pleased}, and \texttt{relaxed}. Let \(e_{i-1}\), \(p_{i-1}\), and \(r_{i-1}\) denote their lagged values at the previous prompt. We then model the latent happiness state as
 \[
 x_i \mid x_{i-1},x_{i-5},e_{i-1},p_{i-1},r_{i-1}
 \sim \mathcal{N}(\mu_i,\sigma^2),
-\]
-where
-\[
+\qquad
 \mu_i
 =
 \alpha
@@ -190,47 +282,46 @@ where
 +\gamma_2 p_{i-1}
 +\gamma_3 r_{i-1}.
 \]
-Here, \(\beta_1\) and \(\beta_5\) capture autoregressive dependence in latent happiness, while \(\gamma_1,\gamma_2,\gamma_3\) measure the contributions of lagged enthusiasm, pleased, and relaxed scores, respectively. For observations where lagged values are unavailable, the latent state is again initialized from
+Here, \(\beta_1\) and \(\beta_5\) capture autoregressive dependence in latent happiness, while \(\gamma_1,\gamma_2,\gamma_3\) measure the contributions of lagged \texttt{enthusiastic}, \texttt{pleased}, and \texttt{relaxed}, respectively. For observations where lagged values are unavailable, we again assume \(x_i \sim \mathcal{N}(\alpha,\sigma^2)\), with priors
 \[
-x_i \sim \mathcal{N}(\alpha,\sigma^2).
-\]
-We place priors
-\[
-\alpha \sim \mathcal{N}(0,1.5^2), \qquad
-\beta_1 \sim \mathcal{N}(0,1), \qquad
-\beta_5 \sim \mathcal{N}(0,1),
-\]
-\[
-\gamma_1 \sim \mathcal{N}(0,1), \qquad
-\gamma_2 \sim \mathcal{N}(0,1), \qquad
-\gamma_3 \sim \mathcal{N}(0,1), \qquad
+\alpha \sim \mathcal{N}(0,1.5^2),\quad
+\beta_1,\beta_5 \sim \mathcal{N}(0,1),\quad
+\gamma_1,\gamma_2,\gamma_3 \sim \mathcal{N}(0,1),\quad
 \sigma \sim \mathrm{Exponential}(1).
 \]
-The observation model remains the same as in the previous models.
-This model allows future happiness ratings to be explained jointly by persistence in the latent happiness process and by lagged values of related positive-emotion variables.
+The observation model remains the same as in the previous models. This model allows future happiness ratings to be explained jointly by persistence in the latent happiness process and by lagged values of related positive-emotion variables.
+
+
 \subsection{Posterior Computation Methods}
 
-For each of the three models described above, posterior inference is carried out using two complementary approaches implemented in \texttt{Stan}: Hamiltonian Monte Carlo (HMC) and Variational Inference (VI).
+% For each of the three models above, posterior inference is conducted in \texttt{Stan} using two complementary approaches: Hamiltonian Monte Carlo (HMC) and Variational Inference (VI).
+For each of the three models above, posterior inference is carried out in \texttt{Stan} using Hamiltonian Monte Carlo (HMC) and Variational Inference (VI).
+% Our primary method is HMC, specifically the No-U-Turn Sampler (NUTS), which produces samples from the exact posterior distribution up to Monte Carlo error. We also consider VI as a faster approximate alternative. VI reformulates posterior inference as an optimization problem by approximating the true posterior with a distribution from a predefined family. In this study, we use a mean-field variational family, which assumes independence among all parameters and latent variables. Although this assumption yields substantial computational savings, it can underestimate posterior uncertainty and reduce accuracy when strong dependencies are present.
 
-The primary method is Hamiltonian Monte Carlo, specifically the No-U-Turn Sampler (NUTS), which is used to generate samples from the exact posterior distribution up to Monte Carlo error. In addition, we employ variational inference as an approximate alternative. Variational inference reframes posterior computation as an optimization problem by approximating the true posterior distribution with a member of a predefined family of distributions. In this study, we use the mean-field variational family, which assumes independence among all parameters and latent variables. While this assumption enables substantial computational gains, it may lead to underestimation of posterior uncertainty and reduced accuracy when strong dependencies are present.
+% To compare the two methods directly, we draw 3000 posterior samples from each. For HMC, these are post-warmup Monte Carlo samples; for VI, they are samples from the optimized variational approximation. This enables a consistent comparison of posterior summaries and predictive performance across methods.
 
-To facilitate a direct comparison between the two approaches, we draw \(3000\) posterior samples from both methods. For HMC, these correspond to Monte Carlo samples obtained after warmup, while for variational inference, they are samples drawn from the optimized variational approximation. This allows for consistent evaluation of posterior summaries and predictive performance across methods.
+
+Our primary method is HMC, specifically the No-U-Turn Sampler (NUTS), which samples from the exact posterior up to Monte Carlo error. We also consider VI as a faster approximation, using a mean-field variational family that assumes independence among all parameters and latent variables. Although computationally efficient, this approximation may underestimate posterior uncertainty when strong posterior dependence is present.
+
+To compare the two methods directly, we draw 3000 posterior samples from each. For HMC, these are post-warmup Monte Carlo samples; for VI, they are samples from the optimized variational approximation. This enables consistent comparison of posterior summaries and predictive performance.
 
 
 
 \section{Model and Posterior Comparison Results}
 
-To compare both model performance and the accuracy of posterior approximation methods, we evaluate predictive performance using approximate leave-one-out cross-validation (LOO), implemented via the \texttt{loo} package. This approach provides a principled, data-efficient measure of out-of-sample predictive ability without requiring an explicit train–test split.
+To compare both model performance and the accuracy of posterior approximation methods, we evaluate predictive performance using approximate leave-one-out cross-validation (LOO).
+% implemented via the \texttt{loo} package. 
+This approach provides a principled, data-efficient measure of out-of-sample predictive ability without requiring an explicit train–test split.
 
 LOO estimates the expected log predictive density (ELPD), defined as
-\[
-\mathrm{ELPD} = \sum_{i=1}^N \log p(y_i \mid y_{-i}),
-\]
-where \(y_{-i}\) denotes the dataset with the \(i\)-th observation removed. Intuitively, ELPD measures how well a model predicts each observation when that observation is not used for fitting. Larger values of ELPD indicate better predictive performance.
+$\mathrm{ELPD} = \sum_{i=1}^N \log p(y_i \mid y_{-i})$,
+ where \(y_{-i}\) denotes the dataset with the \(i\)-th observation removed. 
+ 
+%Intuitively, ELPD measures how well a model predicts each observation when that observation is not used for fitting. Larger values of ELPD indicate better predictive performance.
 
-In practice, exact leave-one-out cross-validation is computationally expensive. The \texttt{loo} package uses Pareto-smoothed importance sampling (PSIS) to approximate LOO efficiently from posterior draws. This allows us to compute ELPD and its associated standard error for each model and inference method.
+% In practice, exact leave-one-out cross-validation is computationally expensive. The \texttt{loo} package uses Pareto-smoothed importance sampling (PSIS) to approximate LOO efficiently from posterior draws. This allows us to compute ELPD and its associated standard error for each model and inference method.
 
-We compare models using differences in ELPD, along with their standard errors, as returned by \texttt{loo\_compare}. A large difference relative to its standard error indicates a meaningful difference in predictive performance. This framework enables a unified comparison across models of varying complexity (e.g., with or without temporal structure) and across posterior computation methods (HMC vs.\ variational inference). See Table~\ref{tab:loo-all-models} for the full comparison below. 
+We compare models using differences in ELPD, along with their standard errors, as returned by \texttt{loo\_compare}. A large difference relative to its standard error indicates a meaningful difference in predictive performance. This framework enables a unified comparison across models of varying complexity (e.g., with or without temporal structure) and across posterior computation methods (HMC vs.\ variational inference). See Table~\ref{tab:loo-all-models} for the full comparison. 
 
 \begin{table}[htbp]
 \centering
@@ -250,22 +341,46 @@ Extended     & VI  & $-10708.0\ (42.6)$ & $19.2\ (0.2)$    & $21416.0\ (85.2)$ \
 \end{tabular}
 \end{table}
 
-Across model classes, we observe a clear improvement in predictive performance as model complexity increases: the naive model performs worst, reflecting the limitations of ignoring temporal dependence, while the intermediate model shows substantial improvement by incorporating latent time structure. The extended model, which additionally includes lagged emotional predictors, achieves the highest ELPD, indicating that both temporal dynamics and cross-emotion covariates contribute meaningfully to explaining variation in observed happiness. At the same time, within each model, Hamiltonian Monte Carlo (HMC) consistently outperforms variational inference (VI), as evidenced by higher ELPD values in all cases. The discrepancy between HMC and VI is modest for the naive model but becomes substantially larger for the intermediate and extended models, suggesting that mean-field variational inference fails to adequately capture the complex posterior dependence induced by temporal structure and latent dynamics. The magnitude of these ELPD differences relative to their standard errors indicates that the observed gaps are statistically meaningful rather than attributable to Monte Carlo variability. 
+% Across model classes, we observe a clear improvement in predictive performance as model complexity increases: the naive model performs worst, reflecting the limitations of ignoring temporal dependence, while the intermediate model shows substantial improvement by incorporating latent time structure. The extended model, which additionally includes lagged emotional predictors, achieves the highest ELPD, indicating that both temporal dynamics and cross-emotion covariates contribute meaningfully to explaining variation in observed happiness. At the same time, within each model, Hamiltonian Monte Carlo (HMC) consistently outperforms variational inference (VI), as evidenced by higher ELPD values in all cases. The discrepancy between HMC and VI is modest for the naive model but becomes substantially larger for the intermediate and extended models, suggesting that mean-field variational inference fails to adequately capture the complex posterior dependence induced by temporal structure and latent dynamics. The magnitude of these ELPD differences relative to their standard errors indicates that the observed gaps are statistically meaningful rather than attributable to Monte Carlo variability. 
+
+Across model classes, predictive performance improves as model complexity increases: the naive model performs worst, the intermediate model improves substantially after incorporating latent time structure, and the extended model achieves the highest ELPD after adding lagged emotional predictors. This suggests that both temporal dynamics and cross-emotion covariates help explain variation in observed happiness. Within each model, HMC consistently outperforms VI, with the gap becoming much larger for the intermediate and extended models. This indicates that mean-field VI struggles to capture the stronger posterior dependence induced by temporal structure and latent dynamics. The ELPD differences are also large relative to their standard errors, suggesting that these gaps are meaningful rather than due to Monte Carlo variability.
 
 
 \section{Model Diagnostics for HMC}
 
+\subsection{Naive Model}
+
+We assessed the HMC fit for the naive model using trace plots, rank histograms, an exact invariance test, and standard Monte Carlo efficiency measures. As shown in Figure~\ref{fig:naive-diagnostics}, the trace plots for $\mu$ and $\sigma$ fluctuate within stable ranges with close overlap between chains and no visible drift. The corresponding rank histograms are approximately uniform, suggesting satisfactory mixing.
+
+We also performed an exact invariance test as a debugging check. For both $\mu$ and $\sigma$, the test did not detect a significant difference between the forward-only and forward-plus-MCMC distributions, suggesting no obvious implementation problem in the hand-written MCMC code.
+
+Finally, we examined Monte Carlo efficiency using $\hat{R}$, bulk ESS, tail ESS, and MCSE. For both $\mu$ and $\sigma$, $\hat{R}=1.00$, the effective sample sizes are large, and the Monte Carlo standard errors are very small relative to the posterior standard deviations. Taken together, these results support a stable HMC fit for the naive model.
+
+\subsection{Intermediate Model}
+
+We assessed the HMC fit for the intermediate model using the same diagnostic tools as for the naive model. As shown in Figure~\ref{fig:intermediate_diagnostics}, the trace plots for $\alpha$, $\beta_1$, $\beta_5$, and $\sigma$ remain stable with close overlap between chains and no visible drift. The corresponding rank histograms are also approximately uniform, indicating satisfactory mixing.
+
+As shown in Table~\ref{tab:intermediate_invariance}, the exact invariance test did not indicate any meaningful discrepancy between the forward-only and forward-plus-MCMC distributions. This provides further support that the hand-written MCMC implementation does not show an obvious debugging issue.
+
+We also evaluated Monte Carlo efficiency in Table~\ref{tab:intermediate_ess}. All four key parameters had $\hat{R}=1.00$, large effective sample sizes, and negligible Monte Carlo error relative to posterior uncertainty. Overall, these diagnostics support a stable HMC fit for the intermediate model.
+
+\subsection{Extended Model}
+
+We assessed the HMC fit for the extended model using trace plots and rank histograms for the main parameters $\alpha$, $\beta_1$, $\beta_5$, $\gamma_{\text{enth}}$, $\gamma_{\text{pleased}}$, $\gamma_{\text{relaxed}}$, and $\sigma$. As shown in Figures~\ref{fig:adv_diag_main} and~\ref{fig:adv_diag_gamma}, the trace plots remain within stable ranges with close overlap between chains and no obvious drift. The rank histograms are broadly consistent with approximate uniformity, suggesting acceptable mixing.
+
+As shown in Tables~\ref{tab:extended_invariance} and~\ref{tab:extended_ess}, the extended model did not show any obvious diagnostic problems. The exact invariance test did not detect a meaningful difference between the forward-only and forward-plus-MCMC distributions for any of the selected summaries. In addition, all key parameters had $\hat{R}=1.00$, with reasonably large effective sample sizes and small Monte Carlo standard errors. Overall, these results support a stable HMC fit for the extended model.
+
 \section{Conclusion and Discussion}
 
-Overall, the results demonstrate that incorporating temporal structure and additional predictors substantially improves predictive performance, and that HMC provides a more reliable posterior approximation than variational inference, with the extended model fitted via HMC achieving the best predictive accuracy among all specifications.
+Overall, the results show that incorporating temporal structure and additional predictors substantially improves predictive performance, with the extended model—combining time dependence and lagged emotional variables—achieving the best predictive accuracy and therefore providing the most effective Bayesian model for capturing dynamic emotional processes. At the same time, Hamiltonian Monte Carlo (HMC) consistently delivers a more reliable posterior approximation than variational inference with satisfactory diagnostic checks results. 
 
-For the HMC-based models, diagnostic checks indicate that the sampling procedure performs well. In particular, trace plots and rank plots exhibit good mixing behavior, with no evidence of pathological sampling or slow convergence. Furthermore, the empirical calibration check based on posterior predictive intervals does not raise systematic warnings, suggesting that the models are reasonably well-specified. The exact invariance test, implemented via a Kolmogorov–Smirnov test, yields non-significant results, providing additional evidence that the MCMC implementation is correct and does not suffer from coding errors or algorithmic bias.
+% Despite these strengths, several limitations should be noted. First, the use of mean-field variational inference represents a restrictive approximation, particularly in the context of time-dependent latent models where strong posterior correlations are expected. This likely explains the substantial degradation in predictive performance observed for VI relative to HMC. Future work could explore richer variational families, such as full-rank approximations, or alternative methods such as normalizing flows or pathfinder-based initialization, to better capture posterior dependence while retaining computational efficiency. Second, although approximate leave-one-out cross-validation provides a principled measure of predictive performance, it does not fully account for the temporal ordering of observations. More rigorous time-series validation schemes, such as rolling-origin evaluation, could be considered in future studies.
 
-Despite these strengths, several limitations should be noted. First, the use of mean-field variational inference represents a restrictive approximation, particularly in the context of time-dependent latent models where strong posterior correlations are expected. This likely explains the substantial degradation in predictive performance observed for VI relative to HMC. Future work could explore richer variational families, such as full-rank approximations, or alternative methods such as normalizing flows or pathfinder-based initialization, to better capture posterior dependence while retaining computational efficiency. Second, although approximate leave-one-out cross-validation provides a principled measure of predictive performance, it does not fully account for the temporal ordering of observations. More rigorous time-series validation schemes, such as rolling-origin evaluation, could be considered in future studies.
+Despite these strengths, several limitations should be noted. First, mean-field variational inference is a restrictive approximation, especially for time-dependent latent models where strong posterior dependence is expected. This likely contributes to the poorer predictive performance of VI relative to HMC. Future work could explore richer variational approximations that better capture posterior dependence. Second, although approximate leave-one-out cross-validation provides a useful measure of predictive performance, it does not fully respect the temporal ordering of the data. More appropriate time-series validation schemes, such as rolling-origin evaluation, could be considered in future work.
 
-In summary, this study demonstrates the importance of both model structure and inference method in Bayesian analysis of longitudinal emotional data. Incorporating temporal dynamics and relevant predictors leads to substantial gains in predictive performance, while accurate posterior inference via HMC remains essential for reliable uncertainty quantification and model comparison.
+% In summary, this study demonstrates the importance of both model structure and inference method in Bayesian analysis of longitudinal emotional data. Incorporating temporal dynamics and relevant predictors leads to substantial gains in predictive performance, while accurate posterior inference via HMC remains essential for reliable uncertainty quantification and model comparison.
 
-\section*{Author Contributions}
+
 
 \section{Author Contributions}
 
@@ -282,16 +397,20 @@ Throughout the project, both authors collaborated closely by discussing modeling
 
 \section{appendix}
 
+\subsection{Spearman Correlation Heatmap}
 
-\subsection{Leave-One-Subject-Out Predictive Screening for Variable Selection}
-\label{app:loo_screening}
 
-\begin{figure}[htbp]
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{corr_heatmap.pdf}
     \caption{Spearman correlation heatmap for the nine emotion variables.}
     \label{fig:corr_heatmap}
 \end{figure}
+
+
+\subsection{Leave-One-Subject-Out Predictive Screening for Variable Selection}
+\label{app:loo_screening}
+
 
 To rank the candidate emotions by predictive usefulness, we carried out a leave-one-subject-out one-step-ahead prediction analysis. For each ordered predictor--target pair $(j,k)$ with $j \neq k$, we compared a baseline model and an augmented model:
 \begin{align}
@@ -368,7 +487,270 @@ Step & Candidate & RMSE Base & RMSE Aug & RMSE Gain & Relative MSE Reduction & \
 \hline
 \end{tabular}
 \end{table}
-\subsection{Implentation R codes}
+
+\subsection{Model Diagnosis Figures and Tables}
+
+
+\subsubsection{Naive Model}
+\begin{table}[htbp]
+\centering
+\caption{Exact invariance test results for the naive model.}
+\label{tab:naive_invariance}
+\begin{tabular}{lcc}
+\hline
+Summary & $D$-statistic & $p$-value \\
+\hline
+$\mu$    & 0.075 & 0.627 \\
+$\sigma$ & 0.090 & 0.393 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Monte Carlo efficiency diagnostics for the naive model.}
+\label{tab:naive_ess}
+\begin{tabular}{lcccccc}
+\hline
+Parameter & Mean & SD & MCSE Mean & ESS Bulk & ESS Tail & $\hat{R}$ \\
+\hline
+$\mu$    & -0.158 & 0.0245 & 0.000311 & 6207 & 2951 & 1.00 \\
+$\sigma$ & 0.837  & 0.0429 & 0.00126  & 1148 & 1943 & 1.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \small
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,page=1]{naive_mu_diagnostics.pdf}
+        \caption{ mu diagnostics}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,page=1]{naive_sigma_diagnostics.pdf}
+        \caption{sigma diagnostics}
+    \end{subfigure}
+    \caption{HMC diagnostic plots for the naive model.}
+    \label{fig:naive-diagnostics}
+\end{figure}
+
+
+
+
+
+\subsubsection{Intermediate Model}
+\begin{table}[H]
+\centering
+\caption{Exact invariance test results for the intermediate model.}
+\label{tab:intermediate_invariance}
+\begin{tabular}{lcc}
+\hline
+Summary & $D$-statistic & $p$-value \\
+\hline
+$\alpha$   & 0.105 & 0.220 \\
+$\beta_1$  & 0.060 & 0.864 \\
+$\beta_5$  & 0.045 & 0.987 \\
+$\sigma$   & 0.075 & 0.627 \\
+\hline
+\end{tabular}
+\end{table}
+
+
+\begin{table}[H]
+\centering
+\caption{Monte Carlo efficiency diagnostics for the intermediate model.}
+\label{tab:intermediate_ess}
+\begin{tabular}{lcccccc}
+\hline
+Parameter & Mean & SD & MCSE Mean & ESS Bulk & ESS Tail & $\hat{R}$ \\
+\hline
+$\alpha$   & -0.0316 & 0.00859  & 0.000198  & 1881 & 1430 & 1.00 \\
+$\beta_1$  & 0.449   & 0.000560 & 0.0000101 & 2815 & 1235 & 1.00 \\
+$\beta_5$  & 0.449   & 0.000627 & 0.0000113 & 2984 & 1313 & 1.00 \\
+$\sigma$   & 0.680   & 0.0170   & 0.000412  & 1716 & 1268 & 1.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,page=1]{intermediate_alpha_diagnostics.pdf}
+        \caption{Alpha diagnostics}
+        \label{fig:intermediate_a}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,page=1]{intermediate_beta1_diagnostics.pdf}
+        \caption{Beta\(_1\) diagnostics}
+        \label{fig:intermediate_b1}
+    \end{subfigure}
+
+    \vspace{0.5em}
+
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,page=1]{intermediate_beta5_diagnostics.pdf}
+        \caption{Beta\(_5\) diagnostics}
+        \label{fig:intermediate_b5}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,page=1]{intermediate_sigma_diagnostics.pdf}
+        \caption{Sigma diagnostics}
+        \label{fig:intermediate_s}
+    \end{subfigure}
+
+    \caption{HMC diagnostic plots for the intermediate model.}
+    \label{fig:intermediate_diagnostics}
+\end{figure}
+
+
+
+\subsubsection{Extended Model}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Exact invariance test results for the extended model.}
+\label{tab:extended_invariance}
+\begin{tabular}{lcc}
+\hline
+Summary & $D$-statistic & $p$-value \\
+\hline
+$\alpha$ & 0.045 & 0.987 \\
+$\beta_1$ & 0.100 & 0.270 \\
+$\beta_5$ & 0.055 & 0.923 \\
+$\gamma_{\text{enth}}$ & 0.095 & 0.327 \\
+$\gamma_{\text{pleased}}$ & 0.075 & 0.627 \\
+$\gamma_{\text{relaxed}}$ & 0.050 & 0.964 \\
+$\sigma$ & 0.060 & 0.864 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Monte Carlo efficiency diagnostics for the extended model.}
+\label{tab:extended_ess}
+\begin{tabular}{lcccccc}
+\hline
+Parameter & Mean & SD & MCSE Mean & ESS Bulk & ESS Tail & $\hat{R}$ \\
+\hline
+$\alpha$ & -0.0480 & 0.00708 & 0.000166 & 1810 & 1328 & 1.00 \\
+$\beta_1$ & 0.445 & 0.00357 & 0.000607 & 2962 & 1164 & 1.00 \\
+$\beta_5$ & 0.356 & 0.0179 & 0.000631 & 804 & 940 & 1.00 \\
+$\gamma_{\text{enth}}$ & 0.126 & 0.0238 & 0.000596 & 1597 & 1436 & 1.00 \\
+$\gamma_{\text{pleased}}$ & 0.259 & 0.0299 & 0.000918 & 1048 & 1515 & 1.00 \\
+$\gamma_{\text{relaxed}}$ & 0.0990 & 0.0184 & 0.000460 & 1600 & 1262 & 1.00 \\
+$\sigma$ & 0.380 & 0.0236 & 0.000876 & 726 & 1199 & 1.00 \\
+\hline
+\end{tabular}
+\end{table}
+
+
+
+\begin{figure}[H]
+    \centering
+
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,page=1]{advanced_alpha_diagnostics.pdf}
+        \caption{Alpha diagnostics}
+        \label{fig:adv_alpha_diag}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,page=1]{advanced_beta1_diagnostics.pdf}
+        \caption{Beta\(_1\) diagnostics}
+        \label{fig:adv_beta1_diag}
+    \end{subfigure}
+
+    \vspace{0.5em}
+
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,page=1]{advanced_beta5_diagnostics.pdf}
+        \caption{Beta\(_5\) diagnostics}
+        \label{fig:adv_beta5_diag}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,page=1]{advanced_sigma_diagnostics.pdf}
+        \caption{Sigma diagnostics}
+        \label{fig:adv_sigma_diag}
+    \end{subfigure}
+
+    \caption{HMC diagnostic plots for \(\alpha\), \(\beta_1\), \(\beta_5\), and \(\sigma\) in the extended model.}
+    \label{fig:adv_diag_main}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,page=1]{advanced_gamma_enth_diagnostics.pdf}
+        \caption{\(\gamma_{\text{enth}}\) diagnostics}
+        \label{fig:adv_gamma_enth_diag}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,page=1]{advanced_gamma_pleased_diagnostics.pdf}
+        \caption{\(\gamma_{\text{pleased}}\) diagnostics}
+        \label{fig:adv_gamma_pleased_diag}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,page=1]{advanced_gamma_relaxed_diagnostics.pdf}
+        \caption{\(\gamma_{\text{relaxed}}\) diagnostics}
+        \label{fig:adv_gamma_relaxed_diag}
+    \end{subfigure}
+
+    \caption{HMC diagnostic plots for the lagged predictor coefficients in the advanced model.}
+    \label{fig:adv_diag_gamma}
+\end{figure}
+
+\subsection{Implementation R codes}
+\subsection{Naive Model}
+\label{app:stan_naive}
+
+\lstinputlisting[
+  caption={Stan code for the naive model.},
+  label={lst:naive_stan}
+]{naive_model.stan}
+
+\clearpage
+\subsection{Intermediate Model}
+\label{app:stan_intermediate}
+
+\lstinputlisting[
+  caption={Stan code for the intermediate model.},
+  label={lst:intermediate_stan}
+]{Intermediate_model.stan}
+
+\clearpage
+\subsection{Extended Model}
+\label{app:stan_advanced}
+
+\lstinputlisting[
+  caption={Stan code for the extended model.},
+  label={lst:advanced_stan}
+]{advanced_model.stan}
+
 \clearpage
 \printbibliography
 
