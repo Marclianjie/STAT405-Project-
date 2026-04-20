@@ -142,13 +142,12 @@ To assess temporal dependence in \texttt{happy}, we examined the autocorrelation
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.7\textwidth]{happy_acf_ccf_combined.pdf}
-    \caption{Autocorrelation of \texttt{happy} and cross-correlations of \texttt{happy} with \texttt{pleased} and \texttt{enthusiastic}.}
+    \includegraphics[width=1 \textwidth]{happy_acf_ccf_comb.pdf}
+    \caption{Autocorrelation of \texttt{happy} and cross-correlations of \texttt{happy} with \texttt{pleased} ,\texttt{enthusiastic} and \texttt{relaxed}.}
     \label{fig:happy_acf_ccf_combined}
 \end{figure}
 
-
-We also examined the cross-correlation function (CCF) between \texttt{happy} and the related positive emotions \texttt{pleased} and \texttt{enthusiastic}. Both pairs show their strongest positive association near lag 1, showing \texttt{pleased} and \texttt{enthusiastic} are reasonable indicators for \texttt{happy}. 
+We also examined the cross-correlation function (CCF) between \texttt{happy} and the related positive emotions: \texttt{pleased}, \texttt{relaxed}, and \texttt{enthusiastic}. All pairs show there is a strongest positive association near lag 1, suggesting all three of them are reasonable indicators for \texttt{happy}. 
 
 
 \section{Methodology}
@@ -727,7 +726,6 @@ $\sigma$ & 0.380 & 0.0236 & 0.000876 & 726 & 1199 & 1.00 \\
 \subsection{Implementation R codes}
 \subsection{Naive Model}
 \label{app:stan_naive}
-
 \lstinputlisting[
   caption={Stan code for the naive model.},
   label={lst:naive_stan}
